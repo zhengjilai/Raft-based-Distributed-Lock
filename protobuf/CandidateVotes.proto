@@ -1,0 +1,31 @@
+syntax = "proto3";
+package protobuf;
+option go_package = "github.com/dlock_raft/protobuf";
+
+message CandidateVotesRequest{
+    
+    // curent term
+    uint32 term=1;
+
+    // candidate id
+    uint32 nodeId=2;
+
+    // previous entry index
+    uint64 prevEntryIndex=3;
+
+    // previous entry term
+    uint64 prevEntryTerm=4;
+}
+
+message CandidateVotesResponse{
+
+    // current term
+    uint32 term=1;
+
+    // node id
+    uint32 nodeId=2;
+
+    // boolean tag for whether the node accepts candidate
+    bool accepted=3;
+
+}

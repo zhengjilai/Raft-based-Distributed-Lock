@@ -1,0 +1,18 @@
+syntax = "proto3";
+package protobuf;
+option go_package = "github.com/dlock_raft/protobuf";
+
+message Entry{
+    
+    // the entry term
+    uint32 term=1;
+
+    // the entry index
+    uint32 index=2;
+
+    // command name
+    string commandName=3;
+
+    // command content in detail
+    bytes commandContent=4;
+}
