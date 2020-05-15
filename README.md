@@ -1,4 +1,4 @@
-## Raft-based_Distributed_Lock
+## Raft-based-Distributed-Lock
 A Golang implementation of Distributed Lock based on Raft consensus algorithm.
 
 ### Usage
@@ -6,7 +6,7 @@ A Golang implementation of Distributed Lock based on Raft consensus algorithm.
 ```shell
 mkdir -p $GOPATH/src/github.com
 cd $GOPATH/src/github.com
-git clone git@github.com:zhengjilai/Raft-based_Distributed_Lock.git
+git clone git@github.com:zhengjilai/Raft-based-Distributed-Lock.git
 mv Raft-based_Distributed_Lock dlock_raft
 ```
 
