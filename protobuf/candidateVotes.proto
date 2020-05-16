@@ -5,7 +5,7 @@ option go_package = "github.com/dlock_raft/protobuf";
 message CandidateVotesRequest{
     
     // curent term
-    uint32 term=1;
+    uint64 term=1;
 
     // candidate id
     uint32 nodeId=2;
@@ -20,7 +20,7 @@ message CandidateVotesRequest{
 message CandidateVotesResponse{
 
     // current term
-    uint32 term=1;
+    uint64 term=1;
 
     // node id
     uint32 nodeId=2;

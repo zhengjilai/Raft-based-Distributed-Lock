@@ -1,5 +1,6 @@
 package storage
 
+// the base struct for commands
 type Command struct {
 	
 	// command name, format string
@@ -13,10 +14,13 @@ type Command struct {
 
 }
 
+// interface for commands
 type CommandOperator interface{
 
     GetCommandName() string
-	GetContent() []byte
+	GetCommandContent() []byte
+	SetCommandContent(commandContent []byte)
+	SetCommandName(commandName string)
 
 }
 

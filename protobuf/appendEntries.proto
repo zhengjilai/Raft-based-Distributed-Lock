@@ -7,7 +7,7 @@ import "protobuf/entry.proto";
 message AppendEntriesRequest{
     
     // the current term
-    uint32 term=1;
+    uint64 term=1;
 
     // leader id
     uint32 nodeId=2;
@@ -29,7 +29,7 @@ message AppendEntriesRequest{
 message AppendEntriesResponse{
     
     // the current term
-    uint32 term=1;
+    uint64 term=1;
 
     // follower id
     uint32 nodeId=2;

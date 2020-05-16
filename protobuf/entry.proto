@@ -5,10 +5,10 @@ option go_package = "github.com/dlock_raft/protobuf";
 message Entry{
     
     // the entry term
-    uint32 term=1;
+    uint64 term=1;
 
     // the entry index
-    uint32 index=2;
+    uint64 index=2;
 
     // command name
     string commandName=3;
