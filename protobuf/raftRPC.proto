@@ -3,9 +3,9 @@ package protobuf;
 
 option go_package = "github.com/dlock_raft/protobuf";
 
-import "protobuf/CandidateVotes.proto";
-import "protobuf/RecoverEntries.proto";
-import "protobuf/AppendEntries.proto";
+import "protobuf/candidateVotes.proto";
+import "protobuf/recoverEntries.proto";
+import "protobuf/appendEntries.proto";
 
 service AppendEntries {
     rpc RPCAppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}

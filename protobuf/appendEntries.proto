@@ -2,10 +2,10 @@ syntax = "proto3";
 package protobuf;
 option go_package = "github.com/dlock_raft/protobuf";
 
-import "protobuf/Entry.proto";
+import "protobuf/entry.proto";
 
-message RecoverEntriesRequest {
-
+message AppendEntriesRequest{
+    
     // the current term
     uint32 term=1;
 
@@ -18,26 +18,29 @@ message RecoverEntriesRequest {
     // previous entry term
     uint64 prevEntryTerm=4;
 
-}
-
-message RecoverEntriesResponse {
-
-    // the current term
-    uint32 term=1;
-
-    // leader id
-    uint32 nodeId=2;
-
-    // previous entry index
-    uint64 prevEntryIndex=3;
-
-    // previous entry term
-    uint64 prevEntryTerm=4;
-
-    // boolean tag for recovering at least one entry
-    bool recovered=5; 
+    // commit index
+    uint64 commitEntryIndex=5;
 
     // entries in detail
     repeated Entry entryList=6;
+
+}
+
+message AppendEntriesResponse{
+    
+    // the current term
+    uint32 term=1;
+
+    // follower id
+    uint32 nodeId=2;
+
+    // previous entry index
+    uint64 prevEntryIndex=3;
+
+    // previous entry term
+    uint64 prevEntryTerm=4;
+
+    // commit index
+    uint64 commitEntryIndex=5;
 
 }
