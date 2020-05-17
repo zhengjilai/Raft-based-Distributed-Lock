@@ -9,9 +9,6 @@ type Command struct {
 	// command content, may have been encoded
 	commandContent []byte
 
-	// required interface for command
-	CommandOp CommandOperator
-
 }
 
 // interface for commands

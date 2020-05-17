@@ -73,7 +73,7 @@ func (c *CommandKVStore) GetAsKVStore() (*KeyValue, error){
 	return decodedKeyValue, nil
 }
 
-// inheritted from Command
+// inherited from Command
 // always has the default CommandName as "DLock"
 type CommandDLock struct {
 	Command
