@@ -1,13 +1,17 @@
 package node
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func TestNewServer(t *testing.T){
 
 	serverTest, err := NewServer()
+	if err != nil {
+		t.Error(fmt.Sprintf("Error happens when creating a new server: %s", err))
+	}
+
 	serverTest.serverLogger.Debug("This is Debug!")
 	serverTest.serverLogger.DebugF("Here are some numbers: %d %d %f", 10, -3, 3.14)
 	// Give the Warning
@@ -23,6 +27,5 @@ func TestNewServer(t *testing.T){
 	serverTest.serverLogger.Info("This is Info!")
 	serverTest.serverLogger.InfoF("This is %s!", "Info")
 
-	fmt.Println(serverTest.serverConfig)
-	fmt.Println(err)
+	t.Log(fmt.Println("Solution of the LinearEquationSystem: ", serverTest))
 }

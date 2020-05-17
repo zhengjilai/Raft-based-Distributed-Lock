@@ -4,6 +4,7 @@
 // 2: Distributed Lock (CommandName: DLock)
 
 // You can edit this file to add new commands for Raft
+// as long as your command satisfies the interface standard
 
 package storage
 

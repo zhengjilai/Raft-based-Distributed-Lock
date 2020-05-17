@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 	"time"
 )
 
@@ -13,18 +13,28 @@ func TestKVStore(t *testing.T){
 	testValue := []byte("TestValue")
 
 	// new KVStore command
-	testKVComannd, err1 := NewCommandKVStore(testKey, testValue)
+	testKVCommand, err1 := NewCommandKVStore(testKey, testValue)
+	if err1 != nil {
+		t.Error(fmt.Sprintf("Error happens when creating a new KVStore command: %s", err1))
+	}
+	t.Log(fmt.Println("The original set KVStore: ", testKVCommand))
 	
 	// read kv info
-	testKeyValue, err2 := testKVComannd.GetAsKVStore()
-	fmt.Println(testKeyValue)
+	testKeyValue, err2 := testKVCommand.GetAsKVStore()
+	if err2 != nil {
+		t.Error(fmt.Sprintf("Error happens when get KVStore from its Command: %s", err2))
+	}
+	t.Log(fmt.Println("The fetched KVStore: ", testKeyValue))
 	
 	// revise value
 	testKeyValue.Value = []byte("ValueTest")
-	err3 := testKVComannd.SetAsKVStore(testKeyValue)
-	fmt.Println(testKeyValue)
+	testKeyValue.Key = "KeyTest"
+	err3 := testKVCommand.SetAsKVStore(testKeyValue)
+	if err3 != nil {
+		t.Error(fmt.Sprintf("Error happens when setting new KVStore to Command: %s", err3))
+	}
+	t.Log(fmt.Println("The newly set KVStoreCommand: ", testKVCommand))
 
-	fmt.Println(err1, err2, err3)
 }
 
 func TestDLock(t *testing.T){
@@ -39,15 +49,23 @@ func TestDLock(t *testing.T){
 	// new command
 	testDLockCommand, err1 := NewCommandDLock(testLockId, testLockName,
 		 testOrigOwner, testNewOwner, testTimestamp)
+	if err1 != nil {
+		t.Error(fmt.Sprintf("Error happens when creating a new DLock command: %s", err1))
+	}
+	t.Log(fmt.Println("The original DLockCommand: ", testDLockCommand))
 	
 	// read lock info
 	testDLockInfo, err2 := testDLockCommand.GetAsDLockInfo()
-	fmt.Println(testDLockInfo)
+	if err2 != nil {
+		t.Error(fmt.Sprintf("Error happens when creating a new DLock command: %s", err2))
+	}
+	t.Log(fmt.Println("The fetched DLock Command Info: ", testDLockInfo))
 
 	// revise value
 	testDLockInfo.Timestamp = time.Now().UnixNano()
 	err3 := testDLockCommand.SetAsDLockInfo(testDLockInfo)
-	fmt.Println(testDLockInfo)
-
-	fmt.Println(err1, err2, err3)
+	if err3 != nil {
+		t.Error(fmt.Sprintf("Error happens when creating a new DLock command: %s", err3))
+	}
+	t.Log(fmt.Println("The newly set DLockCommand: ", testDLockCommand))
 }	

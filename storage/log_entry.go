@@ -12,7 +12,7 @@ type LogEntry struct {
 	entry *protobuf.Entry
 }
 
-func NewLogEntry(term uint64, index uint64, command CommandOperator) (*LogEntry){
+func NewLogEntry(term uint64, index uint64, command CommandOperator) *LogEntry {
 
 	// elements are stored in protobuf.Entry
 	pbEntry := new(protobuf.Entry)

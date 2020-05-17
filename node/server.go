@@ -13,8 +13,8 @@ const (
 	ConfigYamlFilePath = "../config/config.yaml"
 )
 
-var ReadConfigYamlError = errors.New("dlock_raft.init_server: Read yaml config error.")
-var ConstructLoggerError = errors.New("dlock_raft.init_server: Construct logger error.") 
+var ReadConfigYamlError = errors.New("Dlock_raft.init_server: Read yaml config error.")
+var ConstructLoggerError = errors.New("Dlock_raft.init_server: Construct logger error.")
 
 type Server struct{
 
