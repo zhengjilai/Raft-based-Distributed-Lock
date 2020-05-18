@@ -9,6 +9,9 @@ type Command struct {
 	// command content, may have been encoded
 	commandContent []byte
 
+	// the interface for fake class inheritance
+	commandOperator CommandOperator
+
 }
 
 // interface for commands
@@ -18,6 +21,7 @@ type CommandOperator interface{
 	GetCommandContent() []byte
 	SetCommandContent(commandContent []byte)
 	SetCommandName(commandName string)
+    GetFastIndex() (string, error)
 
 }
 

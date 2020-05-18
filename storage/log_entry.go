@@ -10,6 +10,11 @@ import (
 // A log entry type for storing, encoding and decoding entries
 type LogEntry struct {
 	entry *protobuf.Entry
+
+	// fast index is used for quickly recover state for a single key/dlock
+	// it often contains the key of KVStore, or the LockName of DLock
+	// it can also be extended to other usages
+	fastIndex string
 }
 
 func NewLogEntry(term uint64, index uint64, command CommandOperator) *LogEntry {
@@ -54,6 +59,7 @@ func (le *LogEntry) DecodeLogEntry(encodedLogEntry []byte) (error){
 
 // Encodes the log entry to a buffer. Returns the number of bytes
 // written and any error that may have occurred.
+// Warning: the return length does not count the length characters and "\n" !!!!!!
 func (le *LogEntry) LogStore(writer io.Writer) (int, error) {
 
 	// encode with protobuf

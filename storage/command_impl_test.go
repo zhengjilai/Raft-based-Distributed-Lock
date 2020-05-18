@@ -35,6 +35,13 @@ func TestKVStore(t *testing.T){
 	}
 	t.Log(fmt.Println("The newly set KVStoreCommand: ", testKVCommand))
 
+	// test fast index
+	fastIndex, err4 := testKVCommand.GetFastIndex()
+	if err4 != nil {
+		t.Error(fmt.Sprintf("Error happens when getting fast index of KVStore: %s", err4))
+	}
+	t.Log(fmt.Printf("The Fast index: %s \n", fastIndex))
+
 }
 
 func TestDLock(t *testing.T){
@@ -68,4 +75,12 @@ func TestDLock(t *testing.T){
 		t.Error(fmt.Sprintf("Error happens when creating a new DLock command: %s", err3))
 	}
 	t.Log(fmt.Println("The newly set DLockCommand: ", testDLockCommand))
+
+	// test fast index
+	fastIndex, err4 := testDLockCommand.GetFastIndex()
+	if err4 != nil {
+		t.Error(fmt.Sprintf("Error happens when getting fast index of DLock: %s", err4))
+	}
+	t.Log(fmt.Printf("The Fast index: %s \n", fastIndex))
+
 }	

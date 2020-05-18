@@ -4,35 +4,35 @@ package node
 
 // ServerContextInterface represents the current state of the server.
 type ServerContextInterface interface {
-	CurrentTerm() int64
-	CurrentIndex() int64
-	CommitIndex() int64
+	CurrentTerm() uint64
+	CurrentIndex() uint64
+	CommitIndex() uint64
 }
 
 // ServerContext is the concrete implementation of ServerContext.
 type ServerContext struct {
-	CurrentIndex int64
-	CurrentTerm  int64
-	CommitIndex  int64
+	CurrentIndex uint64
+	CurrentTerm  uint64
+	CommitIndex  uint64
 }
 
 // CurrentTerm returns current term the server is in.
-func (c *ServerContext) GetCurrentTerm() int64 {
+func (c *ServerContext) GetCurrentTerm() uint64 {
 	return c.CurrentTerm
 }
 
 // CurrentIndex returns current index the server is at.
-func (c *ServerContext) GetCurrentIndex() int64 {
+func (c *ServerContext) GetCurrentIndex() uint64 {
 	return c.CurrentIndex
 }
 
 // CommitIndex returns last commit index the server is at.
-func (c *ServerContext) GetCommitIndex() int64 {
+func (c *ServerContext) GetCommitIndex() uint64 {
 	return c.CommitIndex
 }
 
 // Init an ServerContext instance
-func NewServerContext(term int64, index int64, commit int64) *ServerContext{
+func NewServerContext(term uint64, index uint64, commit uint64) *ServerContext{
 
 	// construct the ServerContext object and return
 	serverContext := new(ServerContext)
