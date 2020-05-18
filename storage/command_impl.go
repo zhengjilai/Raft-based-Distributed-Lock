@@ -77,6 +77,7 @@ func (c *CommandKVStore) GetAsKVStore() (*KeyValue, error){
 }
 
 // the fast index interface specific to KVStore
+// format: "KVStore:Key"
 func (c *CommandKVStore) GetFastIndex() (string, error) {
 	kvStore, err := c.GetAsKVStore()
 	if err != nil {
@@ -162,6 +163,7 @@ func (c *CommandDLock) GetAsDLockInfo() (*LockInfo, error){
 }
 
 // the fast index interface specific to DLockInfo
+// format: "DLock:LockName"
 func (c *CommandDLock) GetFastIndex() (string, error) {
 	dLockInfo, err := c.GetAsDLockInfo()
 	if err != nil {

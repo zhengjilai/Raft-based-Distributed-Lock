@@ -1,10 +1,10 @@
 package node
 
 import (
-	"github.com/dlock_raft/utils/logger"
 	"errors"
-	"os"
 	"fmt"
+	"github.com/dlock_raft/utils/logger"
+	"os"
 	"time"
 )
 
@@ -13,8 +13,8 @@ const (
 	ConfigYamlFilePath = "../config/config.yaml"
 )
 
-var ReadConfigYamlError = errors.New("Dlock_raft.init_server: Read yaml config error.")
-var ConstructLoggerError = errors.New("Dlock_raft.init_server: Construct logger error.")
+var ReadConfigYamlError = errors.New("dlock_raft.init_server: Read yaml config error")
+var ConstructLoggerError = errors.New("dlock_raft.init_server: Construct logger error")
 
 type Server struct{
 
