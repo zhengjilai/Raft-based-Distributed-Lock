@@ -87,4 +87,21 @@ func TestDLock(t *testing.T){
 
 func TestNewCommandFromRaw(t *testing.T) {
 
+	// raw data for command content
+	rawCommandContent := []byte{123,34,107,101,121,34,58,34,84,101,115,116,
+		75,101,121,34,44,34,118,97,108,117,101,34,58,34,86,71,86,122,100,70,90,104,98,72,86,108,34,125}
+
+	// command Name
+	commandName := "KVStore"
+	// construct a command
+	testCommand := NewCommandFromRaw(commandName, rawCommandContent)
+	fmt.Println(testCommand)
+
+	// test fastIndex
+	fastIndex, err1 := testCommand.GetFastIndex()
+	if err1 != nil {
+		t.Error(fmt.Sprintf("Error happens when getting fast index of KVStore: %s", err1))
+	}
+	t.Log(fmt.Printf("The Fast index: %s \n", fastIndex))
+
 }

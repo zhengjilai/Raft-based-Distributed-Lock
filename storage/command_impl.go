@@ -181,13 +181,14 @@ func (c *CommandDLock) GetFastIndex() (string, error) {
 // Be cautious to use this function !!!!!
 func NewCommandFromRaw(commandName string, commandContent []byte) CommandOperator {
 
-	// contruct the object according to
+	// construct the object according to
 	if commandName == "KVStore" {
 		// construct the command object
 		commandKVStore := new(CommandKVStore)
 		// note that "KVStore" is predetermined for CommandKVStore
 		commandKVStore.SetCommandName("KVStore")
 		commandKVStore.SetCommandContent(commandContent)
+		commandKVStore.commandOperator = commandKVStore
 		return commandKVStore
 	} else if commandName == "DLock" {
 		// construct the command object
@@ -195,6 +196,7 @@ func NewCommandFromRaw(commandName string, commandContent []byte) CommandOperato
 		// note that ""DLock" is predetermined for CommandDLock
 		commandDLock.SetCommandName("DLock")
 		commandDLock.SetCommandContent(commandContent)
+		commandDLock.commandOperator = commandDLock
 		return commandDLock
 	}
 	return nil

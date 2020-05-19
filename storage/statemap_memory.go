@@ -24,25 +24,25 @@ type StateMapMemoryOperator interface{
 	GetPrevTerm() uint64
 	GetKeyword() string
 	SetKeyword(keyword string)
-	QuerySpecificState(key string) ([]byte,error)
+	QuerySpecificState(key string) (interface{}, error)
 	UpdateStateFromLogEntry(logEntry *LogEntry) error
-	UpdateStateFromLogMemory(logMemory *LogMemory, startIndex uint64, endIndex uint64) error
+	UpdateStateFromLogMemory(logMemory *LogMemory, start uint64, end uint64) error
 
 }
 
-func (s *StateMapMemory) GetPrevIndex() uint64 {
-	return s.prevIndex
+func (sm *StateMapMemory) GetPrevIndex() uint64 {
+	return sm.prevIndex
 }
 
-func (s *StateMapMemory) GetPrevTerm() uint64 {
-	return s.prevTerm
+func (sm *StateMapMemory) GetPrevTerm() uint64 {
+	return sm.prevTerm
 }
 
-func (s *StateMapMemory) GetKeyword() string{
-	return s.keyword
+func (sm *StateMapMemory) GetKeyword() string{
+	return sm.keyword
 }
 
-func (s *StateMapMemory) SetKeyword(keyword string) {
-	s.keyword = keyword
+func (sm *StateMapMemory) SetKeyword(keyword string) {
+	sm.keyword = keyword
 	return
 }

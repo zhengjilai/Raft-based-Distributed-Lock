@@ -56,7 +56,7 @@ func (le *LogEntry) EncodeLogEntry() ([]byte, error){
 	return encodedLogEntry, nil 
 }
 
-func (le *LogEntry) DecodeLogEntry(encodedLogEntry []byte) (error){
+func (le *LogEntry) DecodeLogEntry(encodedLogEntry []byte) error {
 
 	// decode log entry with protobuf
 	pbEntry := new(protobuf.Entry)

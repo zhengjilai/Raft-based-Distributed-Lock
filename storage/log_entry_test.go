@@ -124,9 +124,9 @@ func TestLogEntryWriteRead(t *testing.T) {
 		t.Error(fmt.Sprintf("Error happens when decoding LogEntry from tempFile: %s", err10))
 	}
 	t.Log(fmt.Printf("Read %d bytes for LogEntry DLock\n", readBytes2))
-	t.Log(fmt.Printf("The recovered LogEntry DLock has attributes: %d, %d, %s \n",
+	t.Log(fmt.Printf("The recovered LogEntry DLock has attributes: %d, %d, %s, %s \n",
 		recoverLogEntry2.entry.GetTerm(), recoverLogEntry2.entry.GetIndex(),
-		recoverLogEntry2.entry.GetCommandName()))
+		recoverLogEntry2.entry.GetCommandName(), recoverLogEntry2.GetFastIndex()))
 
 	// the next read should return io.EOF, since there are no LogEntries any more
 	recoverLogEntry3 := new(LogEntry)

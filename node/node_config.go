@@ -1,4 +1,4 @@
-// an implementation for Server
+// an implementation for Node
 package node
 
 import (
@@ -6,15 +6,15 @@ import (
 	"io/ioutil"
 )
 
-type ServerConfig struct{
+type NodeConfig struct{
 
-	// int32 id for server
+	// int32 id for node
 	Id int32 `yaml:"id"`
 
 	Network struct {
-		// server address, ip:port
+		// self node address, ip:port
 		SelfAddress string `yaml:"self_address"`
-		// peer addresses, ip:port
+		// peer node addresses, ip:port
 		PeerAddress []string `yaml:"peer_address"`
 	} `yaml:"network"`
 
@@ -42,7 +42,7 @@ type ServerConfig struct{
 	}
 }
 
-func NewServerConfigFromYaml(configPath string) (*ServerConfig, error) {
+func NewNodeConfigFromYaml(configPath string) (*NodeConfig, error) {
 	
 	// read config file as []byte
 	fileData, err := ioutil.ReadFile(configPath)
@@ -51,13 +51,13 @@ func NewServerConfigFromYaml(configPath string) (*ServerConfig, error) {
 	}
 
 	// the config of yaml format
-	serverConfig := new(ServerConfig)
+	nodeConfig := new(NodeConfig)
 
 	// unmarshall the config byte and return
-	err = yaml.Unmarshal(fileData, &serverConfig)
+	err = yaml.Unmarshal(fileData, &nodeConfig)
 	if err != nil{
 		return nil, err
 	}
-	return serverConfig, nil
+	return nodeConfig, nil
 }
 
