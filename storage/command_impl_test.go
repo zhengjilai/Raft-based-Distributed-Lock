@@ -83,4 +83,8 @@ func TestDLock(t *testing.T){
 	}
 	t.Log(fmt.Printf("The Fast index: %s \n", fastIndex))
 
-}	
+}
+
+func TestNewCommandFromRaw(t *testing.T) {
+
+}

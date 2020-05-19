@@ -21,27 +21,31 @@ func TestLogEntryMemoryBasicOperations(t *testing.T) {
 		if err1 != nil {
 			t.Error(fmt.Sprintf("Error happens when creating a KVStore Command: %s\n", err1))
 		}
-		err2 := testLogMemory.InsertLogEntry(NewLogEntry(uint64(1001+i), uint64(i+1), command))
+		logEntry, err2 := NewLogEntry(uint64(1001+i), uint64(i+1), command)
 		if err2 != nil {
-			t.Error(fmt.Sprintf("Error happens when inserting a LogEntry: %s\n", err2))
+			t.Error(fmt.Sprintf("Error happens when creating a LogEntry: %s\n", err2))
+		}
+		err3 := testLogMemory.InsertLogEntry(logEntry)
+		if err3 != nil {
+			t.Error(fmt.Sprintf("Error happens when inserting a LogEntry: %s\n", err3))
 		}
 	}
 
 	// test a valid entry
-	recoverLogEntry, err3 := testLogMemory.FetchLogEntry(3)
-	if err3 != nil {
-		t.Error(fmt.Sprintf("Error happens when getting a LogEntry: %s\n", err3))
+	recoverLogEntry, err4 := testLogMemory.FetchLogEntry(3)
+	if err4 != nil {
+		t.Error(fmt.Sprintf("Error happens when getting a LogEntry: %s\n", err4))
 	}
 	t.Log(fmt.Printf("The read valid LogEntry has attributes: %d, %d, %s \n",
 		recoverLogEntry.entry.GetTerm(), recoverLogEntry.entry.GetIndex(),
 		recoverLogEntry.entry.GetCommandName()))
 
 	// test an invalid entry
-	recoverLogEntry, err4 := testLogMemory.FetchLogEntry(9225)
-	if err4 != nil {
-		t.Log(fmt.Sprintf("Wanted error happens when getting an invalid LogEntry: %s\n", err4))
+	_, err5 := testLogMemory.FetchLogEntry(9225)
+	if err5 != nil {
+		t.Log(fmt.Sprintf("Wanted error happens when getting an invalid LogEntry: %s\n", err5))
 	} else {
-		t.Error(fmt.Sprintf("Unwanted error happens when getting an invalid LogEntry: %s\n", err4))
+		t.Error(fmt.Sprintf("Unwanted error happens when getting an invalid LogEntry: %s\n", err5))
 	}
 
 }
@@ -60,7 +64,11 @@ func TestLogEntryMemoryStoreRecover(t *testing.T) {
 		if err1 != nil {
 			t.Error(fmt.Sprintf("Error happens when creating a KVStore Command: %s\n", err1))
 		}
-		err2 := testLogMemory.InsertLogEntry(NewLogEntry(uint64(1001+i), uint64(1+i), command))
+		logEntry, err2 := NewLogEntry(uint64(1001+i), uint64(1+i), command)
+		if err2 != nil {
+			t.Error(fmt.Sprintf("Error happens when creating a LogEntry: %s\n", err2))
+		}
+		err2 = testLogMemory.InsertLogEntry(logEntry)
 		if err2 != nil {
 			t.Error(fmt.Sprintf("Error happens when inserting a LogEntry: %s\n", err2))
 		}

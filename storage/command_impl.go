@@ -6,6 +6,9 @@
 // You can edit this file to add new commands for Raft
 // as long as your command satisfies the interface standard
 
+// Warning: except implementing an interface for Command
+// at bottom, a function called NewCommandFromRaw(string, []byte) should also be implemented
+
 package storage
 
 import (
@@ -171,4 +174,28 @@ func (c *CommandDLock) GetFastIndex() (string, error) {
 	}
 	// the fast index is set as LockName
 	return "DLock:" + dLockInfo.LockName, nil
+}
+
+// a help function for getting a Command from raw data
+// Warning: you should change this function to use the functionality of FastIndex
+// Be cautious to use this function !!!!!
+func NewCommandFromRaw(commandName string, commandContent []byte) CommandOperator {
+
+	// contruct the object according to
+	if commandName == "KVStore" {
+		// construct the command object
+		commandKVStore := new(CommandKVStore)
+		// note that "KVStore" is predetermined for CommandKVStore
+		commandKVStore.SetCommandName("KVStore")
+		commandKVStore.SetCommandContent(commandContent)
+		return commandKVStore
+	} else if commandName == "DLock" {
+		// construct the command object
+		commandDLock := new(CommandDLock)
+		// note that ""DLock" is predetermined for CommandDLock
+		commandDLock.SetCommandName("DLock")
+		commandDLock.SetCommandContent(commandContent)
+		return commandDLock
+	}
+	return nil
 }

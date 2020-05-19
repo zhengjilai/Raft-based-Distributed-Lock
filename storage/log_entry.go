@@ -1,11 +1,17 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"github.com/dlock_raft/protobuf"
 	"google.golang.org/protobuf/proto"
 	"io"
 )
+
+var LogEntryContentDecodeError = errors.New("dlock_raft.log_entry: " +
+	"command content decode fails, the read []byte is invalid")
+var LogEntryFastIndexError = errors.New("dlock_raft.log_entry: " +
+	"command content decode fails, the read []byte is invalid")
 
 // A log entry type for storing, encoding and decoding entries
 type LogEntry struct {
@@ -17,7 +23,7 @@ type LogEntry struct {
 	fastIndex string
 }
 
-func NewLogEntry(term uint64, index uint64, command CommandOperator) *LogEntry {
+func NewLogEntry(term uint64, index uint64, command CommandOperator) (*LogEntry, error) {
 
 	// elements are stored in protobuf.Entry
 	pbEntry := new(protobuf.Entry)
@@ -30,7 +36,14 @@ func NewLogEntry(term uint64, index uint64, command CommandOperator) *LogEntry {
 	logEntry := new(LogEntry)
 	logEntry.entry = pbEntry
 
-    return logEntry
+	// set fast index for LogEntry
+	fastIndex, err := command.GetFastIndex()
+	if err != nil {
+		return nil, err
+	}
+	logEntry.fastIndex = fastIndex
+
+    return logEntry, nil
 }
 
 func (le *LogEntry) EncodeLogEntry() ([]byte, error){
@@ -53,6 +66,16 @@ func (le *LogEntry) DecodeLogEntry(encodedLogEntry []byte) (error){
 	}
 
 	le.entry = pbEntry
+
+	// process fast index
+	command := NewCommandFromRaw(pbEntry.GetCommandName(), pbEntry.GetCommandContent())
+	if command == nil {
+		return LogEntryContentDecodeError
+	}
+	le.fastIndex, err = command.GetFastIndex()
+	if err != nil {
+		return LogEntryFastIndexError
+	}
     return nil
 
 }
@@ -102,4 +125,8 @@ func (le *LogEntry) LogReload(reader io.Reader) (int, error) {
 	}
 
 	return length + 8 + 1, nil
+}
+
+func (le *LogEntry) GetFastIndex() string{
+	return le.fastIndex
 }
