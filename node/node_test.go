@@ -12,20 +12,20 @@ func TestNewNode(t *testing.T){
 		t.Error(fmt.Sprintf("Error happens when creating a new node: %s", err))
 	}
 
-	nodeTest.nodeLogger.Debug("This is Debug!")
-	nodeTest.nodeLogger.DebugF("Here are some numbers: %d %d %f", 10, -3, 3.14)
+	nodeTest.NodeLogger.Debug("This is Debug!")
+	nodeTest.NodeLogger.DebugF("Here are some numbers: %d %d %f", 10, -3, 3.14)
 	// Give the Warning
-	nodeTest.nodeLogger.Warning("This is Warning!")
-	nodeTest.nodeLogger.WarningF("This is Warning!")
+	nodeTest.NodeLogger.Warning("This is Warning!")
+	nodeTest.NodeLogger.WarningF("This is Warning!")
 	// Show the error
-	nodeTest.nodeLogger.Error("This is Error!")
-	nodeTest.nodeLogger.ErrorF("This is Error!")
+	nodeTest.NodeLogger.Error("This is Error!")
+	nodeTest.NodeLogger.ErrorF("This is Error!")
 	// Notice
-	nodeTest.nodeLogger.Notice("This is Notice!")
-	nodeTest.nodeLogger.NoticeF("%s %s", "This", "is Notice!")
+	nodeTest.NodeLogger.Notice("This is Notice!")
+	nodeTest.NodeLogger.NoticeF("%s %s", "This", "is Notice!")
 	// Show the info
-	nodeTest.nodeLogger.Info("This is Info!")
-	nodeTest.nodeLogger.InfoF("This is %s!", "Info")
+	nodeTest.NodeLogger.Info("This is Info!")
+	nodeTest.NodeLogger.InfoF("This is %s!", "Info")
 
 	t.Log(fmt.Println("Solution of the LinearEquationSystem: ", nodeTest))
 }

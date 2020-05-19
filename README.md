@@ -13,5 +13,5 @@ mv Raft-based_Distributed_Lock dlock_raft
 - Generate grpc codes for raft.
 ```shell
 cd dlock_raft
-protoc --proto_path=. --go_out=$GOPATH/src ./protobuf/*.proto
+protoc --proto_path=. --go_out=plugins=grpc:$GOPATH/src ./protobuf/*.proto
 ```

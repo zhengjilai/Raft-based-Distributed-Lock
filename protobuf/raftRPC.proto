@@ -7,14 +7,8 @@ import "protobuf/candidateVotes.proto";
 import "protobuf/recoverEntries.proto";
 import "protobuf/appendEntries.proto";
 
-service AppendEntries {
-    rpc RPCAppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}
-}
-
-service RecoverEntries {
-    rpc RPCRecoverEntries (RecoverEntriesRequest) returns (RecoverEntriesResponse) {}
-}
-
-service CandidateVotes {
-    rpc RPCCandidateVotes (CandidateVotesRequest) returns (CandidateVotesResponse) {}
+service RaftRPCServer {
+    rpc AppendEntriesService (AppendEntriesRequest) returns (AppendEntriesResponse) {}
+    rpc RecoverEntriesService (RecoverEntriesRequest) returns (RecoverEntriesResponse) {}
+    rpc CandidateVotesService (CandidateVotesRequest) returns (CandidateVotesResponse) {}
 }

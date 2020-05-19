@@ -19,10 +19,10 @@ var ConstructLoggerError = errors.New("dlock_raft.init_node: Construct logger er
 type Node struct{
 
 	// the instance for node config, read from config.yaml
-	nodeConfig *NodeConfig
+	NodeConfig *NodeConfig
 
 	// the node log handler
-	nodeLogger *logger.Logger
+	NodeLogger *logger.Logger
 }
 
 func NewNode() (*Node, error){
@@ -49,8 +49,8 @@ func NewNode() (*Node, error){
 
 	// construct a new node object
 	node := new(Node)
-	node.nodeConfig = nodeConfigInstance
-	node.nodeLogger = nodeLoggerInstance
+	node.NodeConfig = nodeConfigInstance
+	node.NodeLogger = nodeLoggerInstance
 
 	fmt.Println(node)
 
