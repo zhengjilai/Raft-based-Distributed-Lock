@@ -9,7 +9,12 @@ import (
 type NodeConfig struct{
 
 	// int32 id for node
-	Id int32 `yaml:"id"`
+	Id struct {
+		// self node id, int32
+		SelfId uint32 `yaml:"self_id"`
+		// peer node ids, int32
+		PeerId []uint32 `yaml:"peer_id"`
+	} `yaml:"id"`
 
 	Network struct {
 		// self node address, ip:port

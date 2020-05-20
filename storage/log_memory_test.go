@@ -50,6 +50,44 @@ func TestLogEntryMemoryBasicOperations(t *testing.T) {
 
 }
 
+func TestLogEntryMemoryInsertList(t *testing.T) {
+
+	// the new LogMemory
+	testLogMemory := NewLogMemory()
+	// the list for LogEntry
+	testLogEntryList := make([]*LogEntry, 5)
+	// keys
+	testKeys := []string{"key1", "key2", "key3", "key4", "key5"}
+	testValues := []string{"value1", "value2", "value3", "value4", "value5"}
+
+	// insert the KVStore commands into LogMemory
+	for i := 0; i < len(testKeys); i++ {
+		command, err1 := NewCommandKVStore(testKeys[i], []byte(testValues[i]))
+		if err1 != nil {
+			t.Error(fmt.Sprintf("Error happens when creating a KVStore Command: %s\n", err1))
+		}
+		logEntry, err2 := NewLogEntry(uint64(1001+i), uint64(i+1), command)
+		if err2 != nil {
+			t.Error(fmt.Sprintf("Error happens when creating a LogEntry: %s\n", err2))
+		}
+		testLogEntryList[i] = logEntry
+	}
+
+	// test an entry List
+	boolTag1, err4 := testLogMemory.InsertValidEntryList(testLogEntryList[0:2])
+	if err4 != nil && boolTag1 != true{
+		t.Error(fmt.Sprintf("Error happens when inserting an EntryList: %s\n", err4))
+	}
+	// test an entry List
+	boolTag5, err5 := testLogMemory.InsertValidEntryList(testLogEntryList[1:5])
+	if err5 != nil && boolTag5 != true{
+		t.Error(fmt.Sprintf("Error happens when inserting an EntryList: %s\n", err5))
+	}
+	t.Log(fmt.Println("Current Log Memory: ", testLogMemory))
+
+}
+
+
 func TestLogEntryMemoryStoreRecover(t *testing.T) {
 
 	// the new LogMemory

@@ -1,10 +1,9 @@
-package network
+package node
 
 // the gprc-based server, for P2P transport between nodes
 
 import (
 	"errors"
-	"github.com/dlock_raft/node"
 	pb "github.com/dlock_raft/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -14,31 +13,55 @@ import (
 
 var GRPCServerAddressError = errors.New("dlock_raft.gprc_server: " +
 	"the listening address is wrong, should have format ip:port")
+var GRPCServerDeadError = errors.New("dlock_raft.gprc_server: " +
+	"the node state is Dead, should start it")
 
 type GrpcServerImpl struct {
 
 	// the actual grpc server object
 	grpcServer *grpc.Server
-	// the node Object
-	node *node.Node
+	// the NodeRef Object
+	NodeRef *Node
 }
 
-func NewGrpcServer(node *node.Node) (*GrpcServerImpl, error){
+func NewGrpcServer(node *Node) (*GrpcServerImpl, error){
 	grpcServer := new(GrpcServerImpl)
-	grpcServer.node = node
+	grpcServer.NodeRef = node
 	return grpcServer, nil
 }
 
 func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 	request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 
-	return &pb.AppendEntriesResponse{
+	// lock before doing anything
+	gs.NodeRef.mutex.Lock()
+	defer gs.NodeRef.mutex.Unlock()
+
+	// if node state is Dead, stop doing anything
+	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
+		return nil, GRPCServerDeadError
+	}
+	gs.NodeRef.NodeLogger.Infof("Begin to precess AppendEntries request, %+v.", request)
+
+	response := &pb.AppendEntriesResponse{
 		Term:             0,
 		NodeId:           0,
 		PrevEntryIndex:   0,
 		PrevEntryTerm:    0,
 		CommitEntryIndex: 0,
-	}, nil
+	}
+
+	// the remote term exceeds local term, should become follower
+	if request.Term > gs.NodeRef.NodeContextInstance.CurrentTerm {
+		gs.NodeRef.NodeLogger.Infof("AppendEntry term %d is greater than current term %d.",
+			request.Term, gs.NodeRef.NodeContextInstance.CurrentTerm)
+		gs.NodeRef.BecomeFollower()
+	}
+	//
+	if request.Term >
+	request.EntryList[]
+
+	return , nil
 }
 
 func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
@@ -68,7 +91,7 @@ func (gs *GrpcServerImpl) RecoverEntriesService(ctx context.Context,
 func (gs *GrpcServerImpl) StartService() error {
 
 	// get the listing address
-	address := gs.node.NodeConfig.Network.SelfAddress
+	address := gs.NodeRef.NodeConfigInstance.Network.SelfAddress
 	splittedAddress := strings.Split(address, ":")
 	if len(splittedAddress) != 2 {
 		return GRPCServerAddressError

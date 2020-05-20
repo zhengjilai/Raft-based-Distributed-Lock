@@ -104,11 +104,11 @@ func TestStateMapDLockOperations(t *testing.T) {
 	if err3 != nil {
 		t.Error(fmt.Sprintf("Error happens when query state from LogMemory: %s\n", err3))
 	}
-	_, ok := testDLock.(*DlockState)
+	testDLockFormat, ok := testDLock.(*DlockState)
 	if !ok {
 		t.Error(fmt.Sprintf("Error happens since the queried state from LogMemory has wrong format.\n"))
 	} else {
-		t.Log(fmt.Printf("The current state for %s:\n", _.LockName))
-		t.Log(fmt.Println(_))
+		t.Log(fmt.Printf("The current state for %s:\n", testDLockFormat.LockName))
+		t.Log(fmt.Println(testDLockFormat))
 	}
 }

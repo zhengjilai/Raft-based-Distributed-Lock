@@ -1,4 +1,4 @@
-package logger
+package utils
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 func TestServerLoggerModule(t *testing.T){
 
 	// new log object, with log path read in server config
-	testLogFileName := "../../var/logger_test.log"
+	testLogFileName := "../var/logger_test.log"
 	// log handler, format io.writer
 	logFileHandler, err1 := os.OpenFile(testLogFileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err1 != nil {

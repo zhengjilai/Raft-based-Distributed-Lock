@@ -1,44 +1,52 @@
 // node state struct
-// code revised from https://github.com/goraft/raft
 package node
 
-// NodeContextInterface represents the current state of the node.
-type NodeContextInterface interface {
-	CurrentTerm() uint64
-	CurrentIndex() uint64
-	CommitIndex() uint64
-}
+const (
+	Dead = iota
+	Leader
+	Candidate
+	Follower
+	Unknown
+)
 
 // NodeContext is the concrete implementation of NodeContext.
 type NodeContext struct {
+	
+	// the last index in local LogMemory
 	CurrentIndex uint64
+	// the current term
 	CurrentTerm  uint64
+	// the last committed index in local LogMemory
 	CommitIndex  uint64
+	
+	// last applied entry index (to StateMap)
+	LastAppliedIndex uint64
+	// last backup entry index (to local file in disk)
+	LastBackupIndex uint64
+	
+	// the node state
+	NodeState int
+	
+	// the current leader
+	CurrentLeader *PeerNode
 }
 
-// CurrentTerm returns current term the node is in.
-func (c *NodeContext) GetCurrentTerm() uint64 {
-	return c.CurrentTerm
+func NewNodeContext(currentIndex uint64, currentTerm uint64, commitIndex uint64,
+	lastAppliedIndex uint64, lastBackupIndex uint64,
+	nodeState int, currentLeader *PeerNode) *NodeContext {
+	return &NodeContext{CurrentIndex: currentIndex,
+					CurrentTerm: currentTerm,
+					CommitIndex: commitIndex,
+					LastAppliedIndex: lastAppliedIndex,
+					LastBackupIndex: lastBackupIndex,
+					NodeState: nodeState,
+					CurrentLeader: currentLeader}
 }
 
-// CurrentIndex returns current index the node is at.
-func (c *NodeContext) GetCurrentIndex() uint64 {
-	return c.CurrentIndex
+// used when starting the raft cluster
+func NewStartNodeContext() *NodeContext {
+	return NewNodeContext(0,0, 0,
+		0, 0, Dead, nil)
 }
 
-// CommitIndex returns last commit index the node is at.
-func (c *NodeContext) GetCommitIndex() uint64 {
-	return c.CommitIndex
-}
 
-// Init an NodeContext instance
-func NewNodeContext(term uint64, index uint64, commit uint64) *NodeContext {
-
-	// construct the NodeContext object and return
-	nodeContext := new(NodeContext)
-	nodeContext.CurrentTerm = term
-	nodeContext.CurrentIndex = index
-	nodeContext.CommitIndex = commit
-
-	return nodeContext
-}

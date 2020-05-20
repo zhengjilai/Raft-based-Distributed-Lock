@@ -3,8 +3,10 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/dlock_raft/utils/logger"
+	"github.com/dlock_raft/storage"
+	"github.com/dlock_raft/utils"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -19,10 +21,33 @@ var ConstructLoggerError = errors.New("dlock_raft.init_node: Construct logger er
 type Node struct{
 
 	// the instance for node config, read from config.yaml
-	NodeConfig *NodeConfig
+	NodeConfigInstance *NodeConfig
 
 	// the node log handler
-	NodeLogger *logger.Logger
+	NodeLogger *utils.Logger
+
+	// the node context
+	NodeContextInstance *NodeContext
+
+	// the in-memory state maps
+	StateMapKVStore *storage.StateMapMemoryKVStore
+	StateMapDLock *storage.StateMapMemoryDLock
+
+	// the in-memory logEntry
+	LogEntryInMemory *storage.LogMemory
+
+	// all peers
+	PeerList []*PeerNode
+
+	// mutex for node object
+	mutex *sync.RWMutex
+}
+
+type NodeOperators interface {
+
+	BecomeFollower(term uint64) error
+	BecomeLeader(term uint64)
+
 }
 
 func NewNode() (*Node, error){
@@ -41,7 +66,7 @@ func NewNode() (*Node, error){
 		fmt.Println(err)
 		return nil, ConstructLoggerError
 	}
-	nodeLoggerInstance, err := logger.New("DLock-Raft-Node", 1, logFileHandler)
+	nodeLoggerInstance, err := utils.New("DLock-Raft-Node", 1, logFileHandler)
 	if err != nil {
 		fmt.Println(err)
 		return nil, ConstructLoggerError
@@ -49,10 +74,8 @@ func NewNode() (*Node, error){
 
 	// construct a new node object
 	node := new(Node)
-	node.NodeConfig = nodeConfigInstance
+	node.NodeConfigInstance = nodeConfigInstance
 	node.NodeLogger = nodeLoggerInstance
-
-	fmt.Println(node)
 
 	return node, nil
 }

@@ -1,8 +1,7 @@
-package network
+package node
 // the gprc-based client, for P2P transport between nodes
 
 import (
-	"github.com/dlock_raft/node"
 	pb "github.com/dlock_raft/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -15,17 +14,17 @@ type GrpcClientImpl struct {
 	// the connect peer address, format ip:port
 	peerAddress string
 	conn *grpc.ClientConn
-	// the node Object
-	node *node.Node
+	// the NodeRef Object
+	NodeRef *Node
 }
 
-func NewGrpcClient(address string, node *node.Node) *GrpcClientImpl {
+func NewGrpcClient(address string, node *Node) *GrpcClientImpl {
 
 	// construct the feedback object
 	grpcClient := new(GrpcClientImpl)
 	grpcClient.peerAddress = address
 	grpcClient.conn = nil
-	grpcClient.node = node
+	grpcClient.NodeRef = node
 	return grpcClient
 }
 
@@ -72,12 +71,12 @@ func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s\n", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
 			return nil, err
 		}
 	}
@@ -87,14 +86,14 @@ func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest
 
 	// set append entry timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.node.NodeConfig.Parameters.AppendEntriesTimeout) * time.Millisecond)
+		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.AppendEntriesTimeout) * time.Millisecond)
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.node.NodeLogger.Infof("Begin to send AppendEntry to %s.\n", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to send AppendEntry to %s.\n", gc.peerAddress)
 	response, err := clientAppendEntry.AppendEntriesService(ctx, request)
 	if err != nil {
-		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -105,12 +104,12 @@ func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesReque
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s\n", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
 			return nil, err
 		}
 	}
@@ -120,14 +119,14 @@ func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesReque
 
 	// set candidate vote timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.node.NodeConfig.Parameters.MaxWaitTimeCandidate) * time.Millisecond)
+		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.MaxWaitTimeCandidate) * time.Millisecond)
 	defer cancel()
 
 	// handle response
-	gc.node.NodeLogger.Infof("Begin to send CandidateVote to %s.\n", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to send CandidateVote to %s.\n", gc.peerAddress)
 	response, err := clientCandidateVote.CandidateVotesService(ctx, request)
 	if err != nil {
-		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -138,12 +137,12 @@ func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesReque
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s\n", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
 			return nil, err
 		}
 	}
@@ -153,14 +152,14 @@ func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesReque
 
 	// set candidate vote timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.node.NodeConfig.Parameters.AppendEntriesTimeout) * time.Millisecond)
+		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.AppendEntriesTimeout) * time.Millisecond)
 	defer cancel()
 
 	// handle response
-	gc.node.NodeLogger.Infof("Begin to sen RecoverEntries to %s.\n", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to sen RecoverEntries to %s.\n", gc.peerAddress)
 	response, err := clientRecoverEntries.RecoverEntriesService(ctx, request)
 	if err != nil {
-		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 	return response, nil

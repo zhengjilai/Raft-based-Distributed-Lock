@@ -67,6 +67,46 @@ func (lm *LogMemory) FetchLogEntry (index uint64) (*LogEntry, error) {
 	return logEntryRequired, nil
 }
 
+// insert a list if LogEntry in the current LogMemory
+// if insertion is valid, meaning that finds an insertion point, insert the following LogEntry
+// if insertion is not valid, do nothing
+func (lm *LogMemory) InsertValidEntryList(entryList []*LogEntry) (bool, error) {
+
+	// init for some variables indicating the position of last common entry index
+	lastCommonEntryListIndex := -1
+
+	// find the insertion point
+	for i, logEntryInsert := range entryList{
+		// fetch the Entry with the same index
+		indexInsert := logEntryInsert.entry.Index
+		// if there is no entry in LogMemory, start from LogMemory index=1
+		if i == 0 && lm.maximumIndex == 0 && indexInsert == 1{
+			lastCommonEntryListIndex = 0
+			break
+		}
+		fetchedLog, err := lm.FetchLogEntry(indexInsert)
+		if err != nil && err != InMemoryLogEntryNotExistError{
+			return false, err
+		} else if err != InMemoryLogEntryNotExistError &&
+			fetchedLog.entry.Term == logEntryInsert.entry.Term {
+			lastCommonEntryListIndex = i
+			break
+		}
+	}
+	// if we cannot find a last common entry index, return false
+	if lastCommonEntryListIndex == -1 {
+		return false, nil
+	} else {
+		for j := lastCommonEntryListIndex; j < len(entryList); j ++{
+			err := lm.InsertLogEntry(entryList[j])
+			if err != nil {
+				return false, err
+			}
+		}
+		return true, nil
+	}
+}
+
 // store the log memory to writer
 // start and end are the front-rear indexes for store
 // return the written bytes and potential errors

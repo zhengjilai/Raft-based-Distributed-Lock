@@ -1,6 +1,6 @@
 // code collected from https://github.com/apsdehal/go-logger
 // Package name declaration
-package logger
+package utils
 
 // Import packages
 import (

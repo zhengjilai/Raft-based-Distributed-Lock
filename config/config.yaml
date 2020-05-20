@@ -1,7 +1,13 @@
 # Config file for distributed lock based on raft
 
-id: 1
+id:
+  # the node ids, format uint32
+  self_id: 1
+  peer_id:
+    - 2
+    - 3
 network:
+  # the node addresses, format ip:port
   self_address: "192.168.2.30:14005"
   peer_address:
     - "192.168.0.2:14005"
@@ -19,7 +25,5 @@ parameters:
 storage:
   # the path for log file
   log_path: "../var/"
-  # the path for persistant entry storage 
-  entry_storage_path: "../var/persistance.db"
-
-
+  # the path for persistent entry storage
+  entry_storage_path: "../var/persistence.db"
