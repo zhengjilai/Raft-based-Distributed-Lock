@@ -2,8 +2,8 @@ package network
 // the gprc-based client, for P2P transport between nodes
 
 import (
-	"fmt"
 	"github.com/dlock_raft/node"
+	pb "github.com/dlock_raft/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -12,8 +12,8 @@ import (
 
 type GrpcClientImpl struct {
 
-	// the connect server address, format ip:port
-	serverAddress string
+	// the connect peer address, format ip:port
+	peerAddress string
 	conn *grpc.ClientConn
 	// the node Object
 	node *node.Node
@@ -23,7 +23,7 @@ func NewGrpcClient(address string, node *node.Node) *GrpcClientImpl {
 
 	// construct the feedback object
 	grpcClient := new(GrpcClientImpl)
-	grpcClient.serverAddress = address
+	grpcClient.peerAddress = address
 	grpcClient.conn = nil
 	grpcClient.node = node
 	return grpcClient
@@ -31,7 +31,7 @@ func NewGrpcClient(address string, node *node.Node) *GrpcClientImpl {
 
 func (gc *GrpcClientImpl) StartConnection() error {
 	// dial the server without secure option
-	conn, err := grpc.Dial(gc.serverAddress, grpc.WithInsecure())
+	conn, err := grpc.Dial(gc.peerAddress, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (gc *GrpcClientImpl) ReConnect() error {
 		if err != nil {
 			return err
 		}
-		conn, err := grpc.Dial(gc.serverAddress, grpc.WithInsecure())
+		conn, err := grpc.Dial(gc.peerAddress, grpc.WithInsecure())
 		if err != nil {
 			return err
 		}
@@ -68,61 +68,127 @@ func (gc *GrpcClientImpl) ReConnect() error {
 	return nil
 }
 
-func (gc *GrpcClientImpl) SendDta() {
-	go func() {
-		for {
-			this.ConnState()
-		}
-	}()
+func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 
-	if !this.IsAvailable() {
-		time.Sleep(time.Second)
-		fmt.Println("cur state is ", this.conn.GetState())
-		this.ReConnect()
-		return
+	// test whether connection still exists
+	if !gc.IsAvailable() {
+		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		// try to reconnect
+		err := gc.ReConnect()
+		// if reconnect fails
+		if err != nil {
+			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			return nil, err
+		}
 	}
 
-	data := <-this.request
+	// register grpc client
+	clientAppendEntry := pb.NewRaftRPCServerClient(gc.conn)
 
-	c := pb.NewGreeterClient(this.conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// set append entry timeout
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(gc.node.NodeConfig.Parameters.AppendEntriesTimeout) * time.Millisecond)
 	defer cancel()
 
-	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: data})
+	// handle response of AppendEntry
+	gc.node.NodeLogger.Infof("Begin to send AppendEntry to %s.\n", gc.peerAddress)
+	response, err := clientAppendEntry.AppendEntriesService(ctx, request)
 	if err != nil {
-		fmt.Printf("could not greet: %v", err)
-		this.result <- err.Error()
-		return
+		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		return nil, err
 	}
 
-	this.result <- r.Message
-
+	return response, nil
 }
 
-func main() {
-	var request chan string = make(chan string, 100)
-	var result chan string = make(chan string, 100)
-	conn := newGrpcConn("127.0.0.1:30051", request, result)
+func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesRequest) (*pb.CandidateVotesResponse, error){
 
-	go func() {
-		for {
-			conn.SendDta()
+	// test whether connection still exists
+	if !gc.IsAvailable() {
+		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		// try to reconnect
+		err := gc.ReConnect()
+		// if reconnect fails
+		if err != nil {
+			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			return nil, err
 		}
-	}()
-
-	go func() {
-		var index int
-		for {
-			request <- fmt.Sprintf("%d", index)
-			index++
-			time.Sleep(time.Second)
-		}
-	}()
-
-	for {
-		v := <-result
-		fmt.Println(" result ", v)
 	}
+
+	// register grpc client
+	clientCandidateVote := pb.NewRaftRPCServerClient(gc.conn)
+
+	// set candidate vote timeout
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(gc.node.NodeConfig.Parameters.MaxWaitTimeCandidate) * time.Millisecond)
+	defer cancel()
+
+	// handle response
+	gc.node.NodeLogger.Infof("Begin to send CandidateVote to %s.\n", gc.peerAddress)
+	response, err := clientCandidateVote.CandidateVotesService(ctx, request)
+	if err != nil {
+		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		return nil, err
+	}
+
+	return response, nil
 }
+
+func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesRequest) (*pb.RecoverEntriesResponse, error){
+
+	// test whether connection still exists
+	if !gc.IsAvailable() {
+		gc.node.NodeLogger.Infof("Current TCP state is \n", gc.conn.GetState())
+		// try to reconnect
+		err := gc.ReConnect()
+		// if reconnect fails
+		if err != nil {
+			gc.node.NodeLogger.Errorf("Reconnect TCP to %s fails.\n", gc.peerAddress)
+			return nil, err
+		}
+	}
+
+	// register grpc client
+	clientRecoverEntries := pb.NewRaftRPCServerClient(gc.conn)
+
+	// set candidate vote timeout
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(gc.node.NodeConfig.Parameters.AppendEntriesTimeout) * time.Millisecond)
+	defer cancel()
+
+	// handle response
+	gc.node.NodeLogger.Infof("Begin to sen RecoverEntries to %s.\n", gc.peerAddress)
+	response, err := clientRecoverEntries.RecoverEntriesService(ctx, request)
+	if err != nil {
+		gc.node.NodeLogger.Errorf("Reconnect TCP fails %s.\n", err)
+		return nil, err
+	}
+	return response, nil
+}
+
+//func main() {
+//	var request chan string = make(chan string, 100)
+//	var result chan string = make(chan string, 100)
+//	conn := newGrpcConn("127.0.0.1:30051", request, result)
+//
+//	go func() {
+//		for {
+//			conn.SendDta()
+//		}
+//	}()
+//
+//	go func() {
+//		var index int
+//		for {
+//			request <- fmt.Sprintf("%d", index)
+//			index++
+//			time.Sleep(time.Second)
+//		}
+//	}()
+//
+//	for {
+//		v := <-result
+//		fmt.Println(" result ", v)
+//	}
+//}
 
