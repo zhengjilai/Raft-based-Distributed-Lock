@@ -2,6 +2,7 @@
 
 id:
   # the node ids, format uint32
+  # Warning: Do not use 0 as it is reserved for indicating unknown !
   self_id: 1
   peer_id:
     - 2

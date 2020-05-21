@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -47,6 +48,7 @@ type NodeOperators interface {
 
 	BecomeFollower(term uint64) error
 	BecomeLeader(term uint64)
+	ElectionTimeout() time.Duration
 
 }
 
@@ -79,4 +81,16 @@ func NewNode() (*Node, error){
 
 	return node, nil
 }
+
+// get a random election timeout
+// ranging from MinWaitTimeCandidate to MaxWaitTimeCandidate
+func (n *Node) ElectionTimeout() time.Duration {
+
+	minWaitTimeCandidate := n.NodeConfigInstance.Parameters.MinWaitTimeCandidate
+	maxWaitTimeCandidate := n.NodeConfigInstance.Parameters.MaxWaitTimeCandidate
+	return time.Duration(int(minWaitTimeCandidate) +
+		rand.Intn(int(maxWaitTimeCandidate-minWaitTimeCandidate))) * time.Millisecond
+}
+
+//
 

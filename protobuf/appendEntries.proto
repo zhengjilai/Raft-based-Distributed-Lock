@@ -35,12 +35,15 @@ message AppendEntriesResponse{
     uint32 nodeId=2;
 
     // previous entry index
-    uint64 prevEntryIndex=3;
+    uint64 conflictEntryIndex=3;
 
     // previous entry term
-    uint64 prevEntryTerm=4;
+    uint64 conflictEntryTerm=4;
 
     // commit index
     uint64 commitEntryIndex=5;
+
+    // boolean tag indicating whether at least one entry is appended
+    bool success=6;
 
 }

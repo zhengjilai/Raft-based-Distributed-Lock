@@ -31,16 +31,16 @@ func TestLogEntryMemoryBasicOperations(t *testing.T) {
 		}
 	}
 
-	// test a valid entry
+	// test a valid Entry
 	recoverLogEntry, err4 := testLogMemory.FetchLogEntry(3)
 	if err4 != nil {
 		t.Error(fmt.Sprintf("Error happens when getting a LogEntry: %s\n", err4))
 	}
 	t.Log(fmt.Printf("The read valid LogEntry has attributes: %d, %d, %s \n",
-		recoverLogEntry.entry.GetTerm(), recoverLogEntry.entry.GetIndex(),
-		recoverLogEntry.entry.GetCommandName()))
+		recoverLogEntry.Entry.GetTerm(), recoverLogEntry.Entry.GetIndex(),
+		recoverLogEntry.Entry.GetCommandName()))
 
-	// test an invalid entry
+	// test an invalid Entry
 	_, err5 := testLogMemory.FetchLogEntry(9225)
 	if err5 != nil {
 		t.Log(fmt.Sprintf("Wanted error happens when getting an invalid LogEntry: %s\n", err5))
@@ -73,14 +73,14 @@ func TestLogEntryMemoryInsertList(t *testing.T) {
 		testLogEntryList[i] = logEntry
 	}
 
-	// test an entry List
-	boolTag1, err4 := testLogMemory.InsertValidEntryList(testLogEntryList[0:2])
-	if err4 != nil && boolTag1 != true{
+	// test an Entry List
+	err4 := testLogMemory.InsertValidEntryList(testLogEntryList[0:2])
+	if err4 != nil {
 		t.Error(fmt.Sprintf("Error happens when inserting an EntryList: %s\n", err4))
 	}
-	// test an entry List
-	boolTag5, err5 := testLogMemory.InsertValidEntryList(testLogEntryList[1:5])
-	if err5 != nil && boolTag5 != true{
+	// test an Entry List
+	err5 := testLogMemory.InsertValidEntryList(testLogEntryList[1:5])
+	if err5 != nil {
 		t.Error(fmt.Sprintf("Error happens when inserting an EntryList: %s\n", err5))
 	}
 	t.Log(fmt.Println("Current Log Memory: ", testLogMemory))
@@ -150,16 +150,16 @@ func TestLogEntryMemoryStoreRecover(t *testing.T) {
 	t.Log(fmt.Sprintf("Total read bytes for index from 1 to %d: %d\n", recoverLogMemory.maximumIndex, totalReadBytes))
 
 	// test some entries
-	// test a valid entry
+	// test a valid Entry
 	recoverLogEntry, err7 := testLogMemory.FetchLogEntry(3)
 	if err7 != nil {
 		t.Error(fmt.Sprintf("Error happens when getting a LogEntry: %s\n", err7))
 	}
 	t.Log(fmt.Printf("The read valid LogEntry has attributes: %d, %d, %s \n",
-		recoverLogEntry.entry.GetTerm(), recoverLogEntry.entry.GetIndex(),
-		recoverLogEntry.entry.GetCommandName()))
+		recoverLogEntry.Entry.GetTerm(), recoverLogEntry.Entry.GetIndex(),
+		recoverLogEntry.Entry.GetCommandName()))
 
-	// test an invalid entry
+	// test an invalid Entry
 	recoverLogEntry, err8 := testLogMemory.FetchLogEntry(9225)
 	if err8 != nil {
 		t.Log(fmt.Sprintf("Wanted error happens when getting an invalid LogEntry: %s\n", err8))

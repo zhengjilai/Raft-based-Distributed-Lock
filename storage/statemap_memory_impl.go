@@ -42,21 +42,21 @@ func NewStateMapMemoryKVStore(keyword string) (*StateMapMemoryKVStore, error) {
 
 func (sm *StateMapMemoryKVStore) UpdateStateFromLogEntry(entry *LogEntry) error {
 
-	// do nothing if entry object is nil, or keyword does not match
+	// do nothing if Entry object is nil, or keyword does not match
 	if entry == nil {
 		return nil
-	}  else if (sm.prevIndex + 1) != entry.entry.Index || sm.prevTerm > entry.entry.Term {
+	}  else if (sm.prevIndex + 1) != entry.Entry.Index || sm.prevTerm > entry.Entry.Term {
 		// note that LogEntry should be applied one by one in terms of index
 		return InMemoryStateMapIndexTermError
 	} else if !strings.HasPrefix(entry.GetFastIndex(), sm.keyword) {
 		// does not fix fast index, then only process the index and term
-		sm.prevIndex = entry.entry.Index
-		sm.prevTerm = entry.entry.Term
+		sm.prevIndex = entry.Entry.Index
+		sm.prevTerm = entry.Entry.Term
 		return InMemoryStateMapKeywordError
 	}
 
 	// update from LogEntry
-	command := NewCommandFromRaw(entry.entry.CommandName, entry.entry.CommandContent)
+	command := NewCommandFromRaw(entry.Entry.CommandName, entry.Entry.CommandContent)
 	// check if the command a valid CommandKVStore
 	commandKVStore, ok := command.(*CommandKVStore)
 	if !ok {
@@ -70,8 +70,8 @@ func (sm *StateMapMemoryKVStore) UpdateStateFromLogEntry(entry *LogEntry) error 
 
 	// the update process
 	sm.StateMap[kvStore.Key] = kvStore.Value
-	sm.prevIndex = entry.entry.Index
-	sm.prevTerm = entry.entry.Term
+	sm.prevIndex = entry.Entry.Index
+	sm.prevTerm = entry.Entry.Term
 
 	return nil
 }
@@ -149,21 +149,21 @@ func NewStateMapMemoryDLock(keyword string) (*StateMapMemoryDLock, error) {
 
 func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 
-	// do nothing if entry object is nil, or keyword does not match
+	// do nothing if Entry object is nil, or keyword does not match
 	if entry == nil {
 		return nil
-	}  else if (sm.prevIndex + 1) != entry.entry.Index || sm.prevTerm > entry.entry.Term {
+	}  else if (sm.prevIndex + 1) != entry.Entry.Index || sm.prevTerm > entry.Entry.Term {
 		// note that LogEntry should be applied one by one in terms of index
 		return InMemoryStateMapIndexTermError
 	} else if !strings.HasPrefix(entry.GetFastIndex(), sm.keyword) {
 		// does not fix fast index, then only process the index and term
-		sm.prevIndex = entry.entry.Index
-		sm.prevTerm = entry.entry.Term
+		sm.prevIndex = entry.Entry.Index
+		sm.prevTerm = entry.Entry.Term
 		return InMemoryStateMapKeywordError
 	}
 
 	// update from LogEntry
-	command := NewCommandFromRaw(entry.entry.CommandName, entry.entry.CommandContent)
+	command := NewCommandFromRaw(entry.Entry.CommandName, entry.Entry.CommandContent)
 	// check if the command a valid CommandDLock
 	commandDLock, ok := command.(*CommandDLock)
 	if !ok {
@@ -207,8 +207,8 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 
 	// the update process
 	sm.StateMap[dlockInfo.LockName] = encodedLockState
-	sm.prevIndex = entry.entry.Index
-	sm.prevTerm = entry.entry.Term
+	sm.prevIndex = entry.Entry.Index
+	sm.prevTerm = entry.Entry.Term
 
 	return nil
 }

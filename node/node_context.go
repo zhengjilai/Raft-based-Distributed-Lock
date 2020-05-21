@@ -29,6 +29,13 @@ type NodeContext struct {
 	
 	// the current leader
 	CurrentLeader *PeerNode
+
+	// the channel for triggering the log committing process
+	CommitChan chan struct{}
+
+	// the voted peer id
+	VotedPeer uint32
+
 }
 
 func NewNodeContext(currentIndex uint64, currentTerm uint64, commitIndex uint64,

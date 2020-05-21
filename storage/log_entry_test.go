@@ -11,7 +11,7 @@ import (
 
 func TestLogEntryEncodeDecode(t *testing.T) {
 
-	// Log entry info
+	// Log Entry info
 	testTerm := uint64(4000)
 	testIndex := uint64(9225)
 	testCommandKVStore, err1 := NewCommandKVStore("key", []byte("value"))
@@ -38,8 +38,8 @@ func TestLogEntryEncodeDecode(t *testing.T) {
 		t.Error(fmt.Sprintf("Error happens when decoding LogEntry with protobuf: %s\n", err3))
 	}
 	t.Log(fmt.Printf("The recovered LogEntry has attributes: %d, %d, %s, %s \n",
-		recoverLogEntry.entry.GetTerm(), recoverLogEntry.entry.GetIndex(),
-		recoverLogEntry.entry.GetCommandName(), recoverLogEntry.GetFastIndex()))
+		recoverLogEntry.Entry.GetTerm(), recoverLogEntry.Entry.GetIndex(),
+		recoverLogEntry.Entry.GetCommandName(), recoverLogEntry.GetFastIndex()))
 
 }
 
@@ -49,7 +49,7 @@ func TestLogEntryWriteRead(t *testing.T) {
 	testTerm := uint64(4000)
 	testIndex := uint64(9225)
 
-	// Test Log entry 1: KVStore
+	// Test Log Entry 1: KVStore
 	testCommandKVStore, err1 := NewCommandKVStore("key", []byte("value"))
 	if err1 != nil {
 		t.Error(fmt.Sprintf("Error happens when creating a KVStore Command: %s\n", err1))
@@ -61,7 +61,7 @@ func TestLogEntryWriteRead(t *testing.T) {
 	}
 
 
-	// Test Log entry 2: DLock
+	// Test Log Entry 2: DLock
 	testLockId := uint32(9226)
 	testLockName := "Lock_Calligrapher"
 	testOrigOwner := "Golang"
@@ -114,8 +114,8 @@ func TestLogEntryWriteRead(t *testing.T) {
 	}
 	t.Log(fmt.Printf("Read %d bytes for LogEntry KVStore\n", readBytes1))
 	t.Log(fmt.Printf("The recovered LogEntry KVStore has attributes: %d, %d, %s \n",
-		recoverLogEntry1.entry.GetTerm(), recoverLogEntry1.entry.GetIndex(),
-		recoverLogEntry1.entry.GetCommandName()))
+		recoverLogEntry1.Entry.GetTerm(), recoverLogEntry1.Entry.GetIndex(),
+		recoverLogEntry1.Entry.GetCommandName()))
 
 	// read LogEntry DLock from file
 	recoverLogEntry2 := new(LogEntry)
@@ -125,8 +125,8 @@ func TestLogEntryWriteRead(t *testing.T) {
 	}
 	t.Log(fmt.Printf("Read %d bytes for LogEntry DLock\n", readBytes2))
 	t.Log(fmt.Printf("The recovered LogEntry DLock has attributes: %d, %d, %s, %s \n",
-		recoverLogEntry2.entry.GetTerm(), recoverLogEntry2.entry.GetIndex(),
-		recoverLogEntry2.entry.GetCommandName(), recoverLogEntry2.GetFastIndex()))
+		recoverLogEntry2.Entry.GetTerm(), recoverLogEntry2.Entry.GetIndex(),
+		recoverLogEntry2.Entry.GetCommandName(), recoverLogEntry2.GetFastIndex()))
 
 	// the next read should return io.EOF, since there are no LogEntries any more
 	recoverLogEntry3 := new(LogEntry)

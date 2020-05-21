@@ -6,13 +6,13 @@ import (
 	"io"
 )
 
-var InMemoryLogInsertError = errors.New("dlock_raft.log_memory: insert entry in in-memory log fails")
+var InMemoryLogInsertError = errors.New("dlock_raft.log_memory: insert Entry in in-memory log fails")
 var InMemoryLogStoreError = errors.New("dlock_raft.log_memory: store in-memory log fails")
-var InMemoryLogEntryNotExistError = errors.New("dlock_raft.log_memory: the required log entry does not exist")
+var InMemoryLogEntryNotExistError = errors.New("dlock_raft.log_memory: the required log Entry does not exist")
 
 type LogMemory struct {
 	// the hashmap for LogEntries in memory
-	// the key for hashmap is the entry index
+	// the key for hashmap is the Entry index
 	logInMemory map[uint64]*LogEntry
 
 	// the maximum index which should not exceed
@@ -29,21 +29,25 @@ func NewLogMemory() *LogMemory{
 
 }
 
+func (lm *LogMemory) MaximumIndex() uint64 {
+	return lm.maximumIndex
+}
+
 func (lm *LogMemory) InsertLogEntry (entry *LogEntry) error {
 
-	// entry should not be nil
-	if entry == nil || entry.entry == nil{
+	// Entry should not be nil
+	if entry == nil || entry.Entry == nil{
 		return InMemoryLogInsertError
 	}
 
 	// get the index for LogEntry as key for hashmap
-	index := entry.entry.GetIndex()
+	index := entry.Entry.GetIndex()
 	// insert the LogEntry
 	lm.logInMemory[index] = entry
 
 	// change maximum index if necessary
-	if entry.entry.Index > lm.maximumIndex{
-		lm.maximumIndex = entry.entry.Index
+	if entry.Entry.Index > lm.maximumIndex{
+		lm.maximumIndex = entry.Entry.Index
 	}
 
 	// return nil if no error
@@ -68,43 +72,16 @@ func (lm *LogMemory) FetchLogEntry (index uint64) (*LogEntry, error) {
 }
 
 // insert a list if LogEntry in the current LogMemory
-// if insertion is valid, meaning that finds an insertion point, insert the following LogEntry
-// if insertion is not valid, do nothing
-func (lm *LogMemory) InsertValidEntryList(entryList []*LogEntry) (bool, error) {
+func (lm *LogMemory) InsertValidEntryList(entryList []*LogEntry) error {
 
-	// init for some variables indicating the position of last common entry index
-	lastCommonEntryListIndex := -1
-
-	// find the insertion point
-	for i, logEntryInsert := range entryList{
-		// fetch the Entry with the same index
-		indexInsert := logEntryInsert.entry.Index
-		// if there is no entry in LogMemory, start from LogMemory index=1
-		if i == 0 && lm.maximumIndex == 0 && indexInsert == 1{
-			lastCommonEntryListIndex = 0
-			break
-		}
-		fetchedLog, err := lm.FetchLogEntry(indexInsert)
-		if err != nil && err != InMemoryLogEntryNotExistError{
-			return false, err
-		} else if err != InMemoryLogEntryNotExistError &&
-			fetchedLog.entry.Term == logEntryInsert.entry.Term {
-			lastCommonEntryListIndex = i
-			break
+	// insert LogEntry one by one
+	for _, entry := range entryList {
+		err := lm.InsertLogEntry(entry)
+		if err != nil {
+			return err
 		}
 	}
-	// if we cannot find a last common entry index, return false
-	if lastCommonEntryListIndex == -1 {
-		return false, nil
-	} else {
-		for j := lastCommonEntryListIndex; j < len(entryList); j ++{
-			err := lm.InsertLogEntry(entryList[j])
-			if err != nil {
-				return false, err
-			}
-		}
-		return true, nil
-	}
+	return nil
 }
 
 // store the log memory to writer
@@ -125,7 +102,7 @@ func (lm *LogMemory) StoreLogMemory(start uint64, end uint64, writer io.Writer) 
 	totalBytesWritten := 0
 	// the main loop for writing entries
 	for i := start; i <= end; i++ {
-		// fetch the log entry
+		// fetch the log Entry
 		entry, err1 = lm.FetchLogEntry(i)
 		if err1 != nil {
 			return 0, err1
@@ -154,7 +131,7 @@ func (lm *LogMemory) LogReload(reader io.Reader) (int, error) {
 	totalReadBytes := 0
 
 	for true {
-		// try to read an entry
+		// try to read an Entry
 		currentReadBytes, err = recoverLogEntry.LogReload(reader)
 
 		// if EOF, then the recovering process is over
@@ -164,11 +141,11 @@ func (lm *LogMemory) LogReload(reader io.Reader) (int, error) {
 			return totalReadBytes, err
 		}
 
-		// fill in the entry in hashmap
-		lm.logInMemory[recoverLogEntry.entry.Index] = recoverLogEntry
+		// fill in the Entry in hashmap
+		lm.logInMemory[recoverLogEntry.Entry.Index] = recoverLogEntry
 		// refine the maximum index
-		if recoverLogEntry.entry.Index > lm.maximumIndex {
-			lm.maximumIndex = recoverLogEntry.entry.Index
+		if recoverLogEntry.Entry.Index > lm.maximumIndex {
+			lm.maximumIndex = recoverLogEntry.Entry.Index
 		}
 		// accumulate the total read bytes
 		totalReadBytes += currentReadBytes
