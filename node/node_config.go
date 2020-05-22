@@ -1,4 +1,6 @@
-// an implementation for Node
+// an implementation for NodeConfig
+// NodeConfig are read from config.yaml
+// all information in NodeConfig is static
 package node
 
 import (

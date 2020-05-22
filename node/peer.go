@@ -20,6 +20,8 @@ type PeerNode struct {
 	// nextIndex is used for leader to find the next index to append for follower
 	// first set equal to the last commit index, then decrement continuously to find the last common entry
 	NextIndex uint64
+	// commitIndex indicates the last committed index in its local LogMemory
+	CommitIndex uint64
 
 	// the gprc client instance, for network transport
 	GrpcClient *GrpcClientImpl

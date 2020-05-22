@@ -1,5 +1,9 @@
-// node state struct
+// an implementation for NodeContext
+// all information in NodeContext are dynamic
+// often related to the current node state, and is changing rapidly
 package node
+
+import "time"
 
 const (
 	Dead = iota
@@ -32,9 +36,14 @@ type NodeContext struct {
 
 	// the channel for triggering the log committing process
 	CommitChan chan struct{}
+	// the channel for triggering sending AppendEntries to all followers
+	AppendEntryChan chan struct{}
+
 
 	// the voted peer id
 	VotedPeer uint32
+	// the election start time
+	electionRestartTime time.Time
 
 }
 

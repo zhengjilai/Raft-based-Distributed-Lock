@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"net"
 	"strings"
+	"time"
 )
 
 var GRPCServerAddressError = errors.New("dlock_raft.gprc_server: " +
@@ -62,8 +63,8 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 		gs.NodeRef.BecomeFollower(request.Term)
 		// refresh the current term
 		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
-		// reset the election module, for receiving heart beat (AppendEntry)
-		gs.NodeRef.ResetElectionModule()
+		// reset the election start time, for receiving heart beat (AppendEntry)
+		gs.NodeRef.NodeContextInstance.electionRestartTime = time.Now()
 	}
 	// if it is exactly the same term, then an AppendEntry should always come from the leader
 	if request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm {
@@ -71,8 +72,8 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 		if gs.NodeRef.NodeContextInstance.NodeState != Follower{
 			gs.NodeRef.BecomeFollower(request.Term)
 		}
-		// reset the election module, for receiving heart beat (AppendEntry)
-		gs.NodeRef.ResetElectionModule()
+		// reset the election start time, for receiving heart beat (AppendEntry)
+		gs.NodeRef.NodeContextInstance.electionRestartTime = time.Now()
 		// judge if the term exists in LogMemory, or it is the first AppendEntry
 		if request.PrevEntryIndex <= gs.NodeRef.LogEntryInMemory.MaximumIndex() {
 			// prevIndex is a solid entry
@@ -170,7 +171,7 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 		// refresh the current term
 		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
 		// reset the election module, for receiving Candidate vote from higher term
-		gs.NodeRef.ResetElectionModule()
+		gs.NodeRef.NodeContextInstance.electionRestartTime = time.Now()
 
 	} else if (request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm) &&
 		(gs.NodeRef.NodeContextInstance.VotedPeer == 0 ||
@@ -193,7 +194,7 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 			response.Accepted = true
 			gs.NodeRef.NodeContextInstance.VotedPeer = request.NodeId
 			// reset the election module, for receiving Candidate vote from the same term, and voting for it
-			gs.NodeRef.ResetElectionModule()
+			gs.NodeRef.NodeContextInstance.electionRestartTime = time.Now()
 		}
 	}
 
