@@ -66,7 +66,7 @@ func TestLogEntryMemoryInsertList(t *testing.T) {
 		if err1 != nil {
 			t.Error(fmt.Sprintf("Error happens when creating a KVStore Command: %s\n", err1))
 		}
-		logEntry, err2 := NewLogEntry(uint64(1001+i), uint64(i+1), command)
+		logEntry, err2 := NewLogEntry(uint64(i % 3 + 1), uint64(i+1), command)
 		if err2 != nil {
 			t.Error(fmt.Sprintf("Error happens when creating a LogEntry: %s\n", err2))
 		}
@@ -83,8 +83,17 @@ func TestLogEntryMemoryInsertList(t *testing.T) {
 	if err5 != nil {
 		t.Error(fmt.Sprintf("Error happens when inserting an EntryList: %s\n", err5))
 	}
-	t.Log(fmt.Println("Current Log Memory: ", testLogMemory))
 
+	// test terms search
+	termToSearch := 3
+	indexSearched, err6 := testLogMemory.FetchLastIndexOfTerm(uint64(termToSearch))
+	if err6 != nil {
+		t.Error(fmt.Sprintf("Error happens when searching an EntryList: %s\n", err6))
+	} else {
+		t.Log(fmt.Printf("The last entry index for term %d is %d.\n", termToSearch, indexSearched))
+	}
+
+	t.Log(fmt.Println("Current Log Memory: ", testLogMemory))
 }
 
 

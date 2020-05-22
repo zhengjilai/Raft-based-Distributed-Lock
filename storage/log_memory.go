@@ -8,6 +8,7 @@ import (
 
 var InMemoryLogInsertError = errors.New("dlock_raft.log_memory: insert Entry in in-memory log fails")
 var InMemoryLogStoreError = errors.New("dlock_raft.log_memory: store in-memory log fails")
+var InMemoryNoSpecificTerm = errors.New("dlock_raft.log_memory: no specific term required in log memory")
 var InMemoryLogEntryNotExistError = errors.New("dlock_raft.log_memory: the required log Entry does not exist")
 
 type LogMemory struct {
@@ -82,6 +83,30 @@ func (lm *LogMemory) InsertValidEntryList(entryList []*LogEntry) error {
 		}
 	}
 	return nil
+}
+
+// find the last index of a specific term
+func (lm *LogMemory) FetchLastIndexOfTerm(term uint64) (uint64,error) {
+
+	// term 0 only means the special entry in index 0
+	if term == 0 {
+		return 0, nil
+	}
+
+	// search from maximum index
+	for i := lm.maximumIndex ; i >=0 ; i -- {
+		if i == 0 {
+			return 0, InMemoryNoSpecificTerm
+		}
+		logEntry, err := lm.FetchLogEntry(i)
+		if err != nil {
+			return 0, err
+		}
+		if logEntry.Entry.Term == term {
+			return i, nil
+		}
+	}
+	return 0, InMemoryNoSpecificTerm
 }
 
 // store the log memory to writer

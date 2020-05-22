@@ -119,15 +119,15 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 			// if prev index does not match, find the conflict index and term for leader
 			maximumIndex := gs.NodeRef.LogEntryInMemory.MaximumIndex()
 			if request.PrevEntryIndex > maximumIndex {
-				// > maximum index, then use maximum index in LogMemory
+				// prevIndex > maximum index, then use maximum index in LogMemory
 				entryForMaxIndex, err := gs.NodeRef.LogEntryInMemory.FetchLogEntry(maximumIndex)
 				if err != nil {
 					return nil, err
 				}
 				response.ConflictEntryIndex = maximumIndex
 				response.ConflictEntryTerm = entryForMaxIndex.Entry.Term
-			} else if request.PrevEntryIndex != 0{
-				// else if !=0, then use the prevIndex in LogMemory
+			} else if request.PrevEntryIndex != 0 {
+				// else if prevIndex != 0, then use the prevIndex in LogMemory
 				entryForPrevIndex, err := gs.NodeRef.LogEntryInMemory.FetchLogEntry(request.PrevEntryIndex)
 				if err != nil {
 					return nil, err

@@ -52,7 +52,7 @@ type NodeOperators interface {
 	RandomElectionTimeout() time.Duration
 	RunElectionDetectorModule()
 	StartCandidateVoteModule()
-	SendAppendEntriesToAllPeers(peerList []uint32)
+	SendAppendEntriesToPeers(peerIdList []uint32)
 
 }
 
@@ -327,27 +327,28 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 				return
 			}
 			// for this time, begin from index of nextIndex - 1
-			prevIndex := n.PeerList[indexIntermediate].NextIndex - 1
+			nextIndexRecord := n.PeerList[indexIntermediate].NextIndex
+			prevIndexRecord := nextIndexRecord - 1
 			maximumIndex := n.LogEntryInMemory.MaximumIndex()
 			// note that entry list begins from nextIndex, and length new never exceeds maximumEntryListLength
-			entryLength := utils.Uint64Min(maximumEntryListLength, maximumIndex - prevIndex)
+			entryLength := utils.Uint64Min(maximumEntryListLength, maximumIndex - prevIndexRecord)
 
 			// fill in the entry list for append
 			entryList := make([]*protobuf.Entry, entryLength)
-			for j := prevIndex + 1; j <= prevIndex + entryLength; j ++ {
+			for j := prevIndexRecord + 1; j <= prevIndexRecord + entryLength; j ++ {
 				logEntry, err := n.LogEntryInMemory.FetchLogEntry(j)
 				if err != nil {
 					n.NodeLogger.Errorf("Error happens when fetching LogEntry %d, error: %s", j, err)
 					n.mutex.Unlock()
 					return
 				}
-				entryList[j - prevIndex - 1] = logEntry.Entry
+				entryList[j - prevIndexRecord - 1] = logEntry.Entry
 			}
 
 			// get prevTerm
-			logEntryPrev, err := n.LogEntryInMemory.FetchLogEntry(prevIndex)
+			logEntryPrev, err := n.LogEntryInMemory.FetchLogEntry(prevIndexRecord)
 			if err != nil {
-				n.NodeLogger.Errorf("Error happens when fetching LogEntry %d, error: %s", prevIndex, err)
+				n.NodeLogger.Errorf("Error happens when fetching LogEntry %d, error: %s", prevIndexRecord, err)
 				n.mutex.Unlock()
 				return
 			}
@@ -356,12 +357,12 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			request := &protobuf.AppendEntriesRequest{
 				Term:             n.NodeContextInstance.CurrentTerm,
 				NodeId:           n.NodeConfigInstance.Id.SelfId,
-				PrevEntryIndex:   prevIndex,
+				PrevEntryIndex:   prevIndexRecord,
 				PrevEntryTerm:    logEntryPrev.Entry.Term,
 				CommitEntryIndex: n.NodeContextInstance.CommitIndex,
 				EntryList:        entryList,
 			}
-			// unlock before send the request
+			// unlock before send the request by GRPC
 			n.mutex.Unlock()
 
 			response, err := n.PeerList[indexIntermediate].GrpcClient.SendGrpcAppendEntries(request)
@@ -391,11 +392,71 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			// still a valid leader, then process the response
 			if response.Term == startCurrentTerm{
 				if response.Success {
+					n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
+						prevIndexRecord + 1, prevIndexRecord + entryLength)
+					// update nextIndex
+					n.PeerList[indexIntermediate].NextIndex = nextIndexRecord + entryLength
+					// update commit index
+					if response.CommitEntryIndex > n.PeerList[indexIntermediate].MatchIndex {
+						n.PeerList[indexIntermediate].MatchIndex = response.CommitEntryIndex
+					}
+
+					origCommitIndex := n.NodeContextInstance.CommitIndex
+					// find whether there is a entry that has been logged in LogMemory by majority of peers
+					for k := n.NodeContextInstance.CommitIndex + 1; k < n.LogEntryInMemory.MaximumIndex(); k++ {
+						// count itself first
+						matchedPeers := 1
+						// count the followers
+						for _, peerInstance := range n.PeerList{
+							if peerInstance.MatchIndex >= k {
+								matchedPeers += 1
+							}
+						}
+						// if majority (>n/2+1) of peers commit, then itself commit
+						if 2 * matchedPeers > len(n.NodeConfigInstance.Id.PeerId) + 1 {
+							n.NodeContextInstance.CommitIndex = k
+							n.NodeLogger.Infof("Majority of peers append LogEntry " +
+								"with index %d, now can commit it.", k)
+						}
+					}
+
+					// if some update to commitIndex happened, then start the commit goroutine
+					if n.NodeContextInstance.CommitIndex > origCommitIndex {
+						// begin to update statemap
+						n.NodeContextInstance.CommitChan <- struct{}{}
+						// tell other followers for commitIndex update
+						n.NodeContextInstance.AppendEntryChan <- struct{}{}
+					}
 
 				}
+			} else {
+				// if appending LogEntry does not succeed, decrease nextIndex
+				if response.ConflictEntryTerm > 0 {
+					lastIndexOfTerm, err := n.LogEntryInMemory.FetchLastIndexOfTerm(response.ConflictEntryTerm)
+					if err == storage.InMemoryNoSpecificTerm {
+						n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+					} else if err != nil {
+						n.NodeLogger.Errorf("Error happens when searching certain term, error: %s", err)
+						n.mutex.Unlock()
+						return
+					} else {
+						n.PeerList[indexIntermediate].NextIndex = lastIndexOfTerm + 1
+					}
+				} else {
+					// note that conflict entry index is often the fist LogEntry leader sends
+					// thus, setting it as nextIndex is a kind of decrement (NextIndex--)
+					n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+				}
+				n.NodeLogger.Infof("The nextIndex of node %d has changed to %d",
+					n.PeerList[indexIntermediate].PeerId, n.PeerList[indexIntermediate].NextIndex)
+
+				// start a new goroutine to process remaining entry append work
+				appendAgainList := []uint32{n.PeerList[indexIntermediate].PeerId}
+				go n.SendAppendEntriesToPeers(appendAgainList)
 			}
 
-
+			// don't forget to unlock mutex
+			n.mutex.Unlock()
 		}()
 	}
 
