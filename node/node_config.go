@@ -36,8 +36,12 @@ type NodeConfig struct{
 		MinWaitTimeCandidate uint32 `yaml:"min_wait_time_candidate"`
 		MaxWaitTimeCandidate uint32 `yaml:"max_wait_time_candidate"`
 		
-		// maximum number of log units in RecoverEntriesResponse 
+		// maximum number of log units in RecoverEntriesResponse and AppendEntryRequest
 		MaxLogUnitsRecover uint32 `yaml:"max_log_units_recover"`
+
+		// the interval for log backup
+		LogBackupInterval uint32 `yaml:"log_back_up_interval"`
+
 	} `yaml:"parameters"`
 
     Storage struct {

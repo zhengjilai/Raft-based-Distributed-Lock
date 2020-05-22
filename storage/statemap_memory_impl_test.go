@@ -100,7 +100,7 @@ func TestStateMapDLockOperations(t *testing.T) {
 	}
 
 	// query a specific DLock
-	testDLock, err3 := stateMapMemoryDLock.QuerySpecificState("DLock2")
+	testDLock, err3 := stateMapMemoryDLock.QuerySpecificState("DLock1")
 	if err3 != nil {
 		t.Error(fmt.Sprintf("Error happens when query state from LogMemory: %s\n", err3))
 	}

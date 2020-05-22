@@ -21,6 +21,7 @@ type PeerNode struct {
 	// first set equal to the last commit index, then decrement continuously to find the last common entry
 	NextIndex uint64
 	// matchIndex indicates the last match index in the peer's local LogMemory
+	// often used for leader's committing process, judging whether majority of followers have logged an Entry
 	MatchIndex uint64
 
 	// the gprc client instance, for network transport
@@ -30,13 +31,14 @@ type PeerNode struct {
 
 }
 
-func NewPeerNode(peerId uint32, addressName string, peerState int, nextIndex uint64,
+func NewPeerNode(peerId uint32, addressName string, peerState int, nextIndex uint64, matchIndex uint64,
 	grpcClient *GrpcClientImpl, node *Node) *PeerNode {
 	return &PeerNode{
 		PeerId: peerId,
 		AddressName: addressName,
 		PeerState: peerState,
 		NextIndex: nextIndex,
+		MatchIndex: matchIndex,
 		GrpcClient: grpcClient,
 		NodeRef: node,
 	}
@@ -59,7 +61,7 @@ func NewPeerNodeListFromConfig(node *Node) ([]*PeerNode, error) {
 	peerList := make([]*PeerNode, len(addressList))
 	for i := 0 ; i < len(addressList) ; i++ {
 		grpcClient := NewGrpcClient(addressList[i], node)
-		peerList[i] = NewPeerNode(idList[i], addressList[i], Unknown, 0, grpcClient, node)
+		peerList[i] = NewPeerNode(idList[i], addressList[i], Unknown, 0, 0, grpcClient, node)
 	}
 	return peerList, nil
 }

@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"github.com/dlock_raft/protobuf"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
@@ -19,6 +18,10 @@ const (
 
 var ReadConfigYamlError = errors.New("dlock_raft.init_node: Read yaml config error")
 var ConstructLoggerError = errors.New("dlock_raft.init_node: Construct logger error")
+var InitContextError = errors.New("dlock_raft.init_node: Init node context error")
+var RecoverLogMemoryError = errors.New("dlock_raft.init_node: Recover log memory error")
+var InitStateMapError = errors.New("dlock_raft.init_node: Init state map error")
+var InitPeerListError = errors.New("dlock_raft.init_node: Init peer list error")
 
 type Node struct{
 
@@ -42,7 +45,7 @@ type Node struct{
 	PeerList []*PeerNode
 
 	// mutex for node object
-	mutex *sync.RWMutex
+	mutex sync.Mutex
 }
 
 type NodeOperators interface {
@@ -53,6 +56,8 @@ type NodeOperators interface {
 	RunElectionDetectorModule()
 	StartCandidateVoteModule()
 	SendAppendEntriesToPeers(peerIdList []uint32)
+	CommitToStateMap()
+	BackUpLogMemoryToDisk()
 
 }
 
@@ -60,28 +65,76 @@ func NewNode() (*Node, error){
 
 	// read node config from yaml file
 	nodeConfigInstance, err := NewNodeConfigFromYaml(ConfigYamlFilePath)
-	if err != nil{
+	if err != nil {
 		return nil, ReadConfigYamlError
 	}
-
 	// new log object, with log path read in node config
 	currentTimeString := time.Now().Format("20060102-150405")
-	logFileName := nodeConfigInstance.Storage.LogPath + "Dlock-" + currentTimeString + ".log"
-	logFileHandler, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		fmt.Println(err)
+	logFileName := nodeConfigInstance.Storage.LogPath + "Dlock-" +
+		currentTimeString + "-" + string(nodeConfigInstance.Id.SelfId) + ".log"
+	logFileHandler, err2 := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE, 0644)
+	if err2 != nil {
+		return nil, err2
+	}
+	// the logger for node
+	nodeLoggerInstance, err3 := utils.New("DLock-Raft-Node", 1, logFileHandler)
+	if err3 != nil {
 		return nil, ConstructLoggerError
 	}
-	nodeLoggerInstance, err := utils.New("DLock-Raft-Node", 1, logFileHandler)
-	if err != nil {
-		fmt.Println(err)
-		return nil, ConstructLoggerError
+	nodeLoggerInstance.Info("Reconstruct Node Logger succeeded.")
+	// the initial context for node
+	nodeContextInstance, err4 := NewStartNodeContext(nodeConfigInstance)
+	if err4 != nil {
+		nodeLoggerInstance.Errorf("Init node context fails, error: %s.", err4)
+		return nil, InitContextError
+	}
+	nodeLoggerInstance.Info("Init node context succeeded.")
+
+	// init or construct an in-memory LogEntry List
+	logMemory := storage.NewLogMemory()
+	readBytes, err5 := logMemory.LogReload(nodeContextInstance.DiskLogEntry)
+	if err5 != nil {
+		nodeLoggerInstance.Errorf("Reconstruct in-memory LogMemory fails, error: %s.", err5)
+		return nil, RecoverLogMemoryError
+	}
+	// init some context parameters according to the backup logEntry
+	nodeContextInstance.LastBackupIndex = logMemory.MaximumIndex()
+	nodeContextInstance.CommitIndex = logMemory.MaximumIndex()
+	nodeContextInstance.LastAppliedIndex = logMemory.MaximumIndex()
+	nodeLoggerInstance.Infof("Reconstruct in-memory LogMemory succeeded, read %d bytes.", readBytes)
+	// init state map in memory from LogMemory
+	stateMapDLock, err6 := storage.NewStateMapMemoryDLock("DLock")
+	stateMapKVStore, err7 := storage.NewStateMapMemoryKVStore("KVStore")
+	if err6 != nil || err7 != nil {
+		nodeLoggerInstance.Errorf("Init state map fails, error: %s, %s.", err6, err7)
+		return nil, InitStateMapError
+	}
+	// update state map by LogMemory
+	err8 := stateMapDLock.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
+	err9 := stateMapKVStore.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
+	if err8 != nil || err9 != nil {
+		nodeLoggerInstance.Errorf("Init state map fails, error: %s, %s.", err8, err9)
+		return nil, InitStateMapError
 	}
 
 	// construct a new node object
-	node := new(Node)
-	node.NodeConfigInstance = nodeConfigInstance
-	node.NodeLogger = nodeLoggerInstance
+	node := &Node{
+		NodeConfigInstance:  nodeConfigInstance,
+		NodeLogger:          nodeLoggerInstance,
+		NodeContextInstance: nodeContextInstance,
+		StateMapKVStore:     stateMapKVStore,
+		StateMapDLock:       stateMapDLock,
+		LogEntryInMemory:    logMemory,
+	}
+	node.mutex
+
+	// init peer node objects
+	peerList, err10 := NewPeerNodeListFromConfig(node)
+	if err10 != nil {
+		nodeLoggerInstance.Errorf("New Peer list init fails, error: %s.", err10)
+		return nil, InitPeerListError
+	}
+	node.PeerList = peerList
 
 	return node, nil
 }
@@ -127,7 +180,7 @@ func (n *Node) RunElectionDetectorModule() {
 		}
 
 		// if the time experienced exceeds election timeout, begin an election module
-		if timeExperienced := time.Since(n.NodeContextInstance.electionRestartTime); timeExperienced >= electionTimeout{
+		if timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime); timeExperienced >= electionTimeout{
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
 			return
@@ -150,7 +203,7 @@ func (n *Node) StartCandidateVoteModule() {
 	// vote for itself
 	n.NodeContextInstance.VotedPeer = n.NodeConfigInstance.Id.SelfId
 	// reset the election time ticker
-	n.NodeContextInstance.electionRestartTime = time.Now()
+	n.NodeContextInstance.ElectionRestartTime = time.Now()
 	n.NodeLogger.Infof("Begin the election module with term %d", n.NodeContextInstance.CurrentTerm)
 
 	// the collected vote number and map
@@ -236,7 +289,7 @@ func (n *Node) BecomeFollower(term uint64) {
 	n.NodeContextInstance.NodeState = Follower
 
 	// start a new election timeout goroutine
-	n.NodeContextInstance.electionRestartTime = time.Now()
+	n.NodeContextInstance.ElectionRestartTime = time.Now()
 	go n.RunElectionDetectorModule()
 }
 
@@ -389,14 +442,14 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 				n.mutex.Unlock()
 				return
 			}
-			// still a valid leader, then process the response
+			// if still a valid leader, then process the response
 			if response.Term == startCurrentTerm{
 				if response.Success {
 					n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
 						prevIndexRecord + 1, prevIndexRecord + entryLength)
 					// update nextIndex
 					n.PeerList[indexIntermediate].NextIndex = nextIndexRecord + entryLength
-					// update commit index
+					// update matchIndex
 					if response.CommitEntryIndex > n.PeerList[indexIntermediate].MatchIndex {
 						n.PeerList[indexIntermediate].MatchIndex = response.CommitEntryIndex
 					}
@@ -459,6 +512,76 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			n.mutex.Unlock()
 		}()
 	}
-
 }
 
+// update stateMap when receiving a signal from channel
+// this function should be running throughout the lifecycle, in a goroutine
+func (n *Node) CommitToStateMap() {
+
+	for {
+
+		select {
+			// if semaphore for updating stateMap is triggered
+			case _, ok := <-n.NodeContextInstance.CommitChan:
+				if ok == true {
+					n.mutex.Lock()
+					// if new entries should be applied to stateMaps
+					if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastAppliedIndex{
+						// update the two stateMaps in memory
+						err := n.StateMapDLock.UpdateStateFromLogMemory(n.LogEntryInMemory,
+							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+						if err != nil {
+							n.NodeLogger.Errorf("Update DLock stateMap failed for entry from %d to %d, error: %s.",
+								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
+						} else {
+							n.NodeLogger.Infof("Update DLock stateMap succeeded for entry from %d to %d.",
+								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+						}
+						err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
+							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+						if err2 != nil {
+							n.NodeLogger.Errorf("Update KVStore stateMap fails for entry from %d to %d, error: %s.",
+								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
+						} else {
+							n.NodeLogger.Infof("Update KVStore stateMap succeeded for entry from %d to %d.",
+								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+						}
+					}
+					n.mutex.Unlock()
+				}
+		}
+	}
+}
+
+// backup the LogMemory in disk
+// this function should be running throughout the lifecycle, in a goroutine
+// the backup interval is set up in config.yaml
+func (n *Node) BackUpLogMemoryToDisk() {
+
+	// ticks every fixed interval
+	ticker := time.NewTicker(time.Duration(n.NodeConfigInstance.Parameters.LogBackupInterval) * time.Millisecond)
+
+	for {
+
+		select {
+		// if semaphore for updating stateMap is triggered
+		case <- ticker.C:
+			n.mutex.Lock()
+			// if new committed entries should be backup
+			if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastBackupIndex &&
+				n.NodeContextInstance.DiskLogEntry != nil {
+				// back up the LogEntries
+				writeBytes, err := n.LogEntryInMemory.StoreLogMemory(n.NodeContextInstance.LastAppliedIndex + 1,
+					n.NodeContextInstance.CommitIndex, n.NodeContextInstance.DiskLogEntry)
+				if err != nil {
+					n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
+						n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
+				} else {
+					n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
+						n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
+				}
+			}
+			n.mutex.Unlock()
+		}
+	}
+}

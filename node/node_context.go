@@ -3,7 +3,10 @@
 // often related to the current node state, and is changing rapidly
 package node
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 const (
 	Dead = iota
@@ -15,9 +18,7 @@ const (
 
 // NodeContext is the concrete implementation of NodeContext.
 type NodeContext struct {
-	
-	// the last index in local LogMemory
-	CurrentIndex uint64
+
 	// the current term
 	CurrentTerm  uint64
 	// the last committed index in local LogMemory
@@ -32,37 +33,52 @@ type NodeContext struct {
 	NodeState int
 	
 	// the current leader
-	CurrentLeader *PeerNode
+	CurrentLeaderId uint32
 
 	// the channel for triggering the log committing process
 	CommitChan chan struct{}
 	// the channel for triggering sending AppendEntries to all followers
 	AppendEntryChan chan struct{}
 
-
 	// the voted peer id
 	VotedPeer uint32
 	// the election start time
-	electionRestartTime time.Time
-
+	ElectionRestartTime time.Time
+	
+	// the on-disk LogEntryList writer
+	DiskLogEntry *os.File
 }
 
-func NewNodeContext(currentIndex uint64, currentTerm uint64, commitIndex uint64,
-	lastAppliedIndex uint64, lastBackupIndex uint64,
-	nodeState int, currentLeader *PeerNode) *NodeContext {
-	return &NodeContext{CurrentIndex: currentIndex,
-					CurrentTerm: currentTerm,
-					CommitIndex: commitIndex,
-					LastAppliedIndex: lastAppliedIndex,
-					LastBackupIndex: lastBackupIndex,
-					NodeState: nodeState,
-					CurrentLeader: currentLeader}
+func NewNodeContext(currentTerm uint64, commitIndex uint64,
+	lastAppliedIndex uint64, lastBackupIndex uint64, nodeState int,
+	currentLeaderId uint32, commitChan chan struct{},
+	appendEntryChan chan struct{}, votedPeer uint32,
+	electionRestartTime time.Time, diskLogEntry *os.File) *NodeContext {
+	return &NodeContext{
+		CurrentTerm: currentTerm,
+		CommitIndex: commitIndex,
+		LastAppliedIndex: lastAppliedIndex,
+		LastBackupIndex: lastBackupIndex,
+		NodeState: nodeState,
+		CurrentLeaderId: currentLeaderId,
+		CommitChan: commitChan,
+		AppendEntryChan: appendEntryChan,
+		VotedPeer: votedPeer,
+		ElectionRestartTime: electionRestartTime,
+		DiskLogEntry: diskLogEntry,
+	}
 }
 
 // used when starting the raft cluster
-func NewStartNodeContext() *NodeContext {
-	return NewNodeContext(0,0, 0,
-		0, 0, Dead, nil)
+func NewStartNodeContext(config *NodeConfig) (*NodeContext, error) {
+	// read config file as []byte
+	fileData, err := os.OpenFile(config.Storage.EntryStoragePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil{
+		return nil, err
+	}
+	return NewNodeContext(0,0, 0, 0,
+		 Dead, 0, make(chan struct{}, 1), make(chan struct{}, 1), 0,
+		 time.Now(), fileData), nil
 }
 
 
