@@ -126,7 +126,6 @@ func NewNode() (*Node, error){
 		StateMapDLock:       stateMapDLock,
 		LogEntryInMemory:    logMemory,
 	}
-	node.mutex
 
 	// init peer node objects
 	peerList, err10 := NewPeerNodeListFromConfig(node)
@@ -449,13 +448,14 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						prevIndexRecord + 1, prevIndexRecord + entryLength)
 					// update nextIndex
 					n.PeerList[indexIntermediate].NextIndex = nextIndexRecord + entryLength
-					// update matchIndex
-					if response.CommitEntryIndex > n.PeerList[indexIntermediate].MatchIndex {
-						n.PeerList[indexIntermediate].MatchIndex = response.CommitEntryIndex
+					// if prevIndex matches in peers' local LogMemory (Success == true)
+					// then update matchIndex equal to the index of the last appended LogEntry
+					if n.PeerList[indexIntermediate].NextIndex - 1 > n.PeerList[indexIntermediate].MatchIndex {
+						n.PeerList[indexIntermediate].MatchIndex = n.PeerList[indexIntermediate].NextIndex - 1
 					}
 
 					origCommitIndex := n.NodeContextInstance.CommitIndex
-					// find whether there is a entry that has been logged in LogMemory by majority of peers
+					// find whether there is an LogEntry that has been logged in LogMemory by majority of peers
 					for k := n.NodeContextInstance.CommitIndex + 1; k < n.LogEntryInMemory.MaximumIndex(); k++ {
 						// count itself first
 						matchedPeers := 1

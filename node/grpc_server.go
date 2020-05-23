@@ -86,8 +86,8 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 				if entryForPrevIndex.Entry.Term == request.PrevEntryTerm {
 					response.Success = true
 				}
-				// prevIndex = 0, an extreme situation
 			} else {
+				// prevIndex = 0, an extreme situation
 				response.Success = true
 			}
 		}
