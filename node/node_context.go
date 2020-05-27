@@ -39,6 +39,8 @@ type NodeContext struct {
 	CommitChan chan struct{}
 	// the channel for triggering sending AppendEntries to all followers
 	AppendEntryChan chan struct{}
+	// the stop channel for main goroutine to exit
+	StopChan chan struct{}
 
 	// the voted peer id
 	VotedPeer uint32
@@ -52,7 +54,7 @@ type NodeContext struct {
 func NewNodeContext(currentTerm uint64, commitIndex uint64,
 	lastAppliedIndex uint64, lastBackupIndex uint64, nodeState int,
 	currentLeaderId uint32, commitChan chan struct{},
-	appendEntryChan chan struct{}, votedPeer uint32,
+	appendEntryChan chan struct{}, stopChan chan struct{}, votedPeer uint32,
 	electionRestartTime time.Time, diskLogEntry *os.File) *NodeContext {
 	return &NodeContext{
 		CurrentTerm: currentTerm,
@@ -63,6 +65,7 @@ func NewNodeContext(currentTerm uint64, commitIndex uint64,
 		CurrentLeaderId: currentLeaderId,
 		CommitChan: commitChan,
 		AppendEntryChan: appendEntryChan,
+		StopChan: stopChan,
 		VotedPeer: votedPeer,
 		ElectionRestartTime: electionRestartTime,
 		DiskLogEntry: diskLogEntry,
@@ -77,8 +80,8 @@ func NewStartNodeContext(config *NodeConfig) (*NodeContext, error) {
 		return nil, err
 	}
 	return NewNodeContext(1,0, 0, 0,
-		 Dead, 0, make(chan struct{}, 1), make(chan struct{}, 1), 0,
-		 time.Now(), fileData), nil
+		 Dead, 0, make(chan struct{}, 1), make(chan struct{}, 1),
+		make(chan struct{}, 1), 0, time.Now(), fileData), nil
 }
 
 

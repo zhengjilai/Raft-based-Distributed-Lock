@@ -47,8 +47,10 @@ func (gc *GrpcClientImpl) GetConnectionState() connectivity.State {
 
 func (gc *GrpcClientImpl) IsAvailable() bool {
 	if gc.conn != nil {
+		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
 		return gc.conn.GetState() == connectivity.Ready
 	}
+	gc.NodeRef.NodeLogger.Infof("P2P Connection with %s has not been initialized.", gc.peerAddress)
 	return false
 }
 
@@ -63,6 +65,8 @@ func (gc *GrpcClientImpl) ReConnect() error {
 			return err
 		}
 		gc.conn = conn
+	} else if gc.conn == nil {
+		return gc.StartConnection()
 	}
 	return nil
 }
@@ -71,7 +75,6 @@ func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails
@@ -104,7 +107,6 @@ func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesReque
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails
@@ -137,7 +139,6 @@ func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesReque
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
-		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
 		// try to reconnect
 		err := gc.ReConnect()
 		// if reconnect fails

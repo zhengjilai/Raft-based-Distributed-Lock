@@ -18,7 +18,7 @@ RUN git clone https://github.com/golang/net.git /srv/gopath/src/golang.org/x/net
 RUN git clone https://github.com/golang/sys.git /srv/gopath/src/golang.org/x/sys
 RUN git clone https://github.com/golang/text.git /srv/gopath/src/golang.org/x/text
 
-RUN mkdir
+RUN mkdir -p /srv/gopath/src/github.com/golang
 RUN git clone https://github.com/golang/protobuf.git /srv/gopath/src/github.com/golang/protobuf
 
 # copy own codes into container
@@ -34,4 +34,5 @@ RUN mkdir -p /srv/gopath/src/github.com/dlock_raft/var
 
 # entry point
 # should expose two ports, one for peer, one for client
+WORKDIR /srv/gopath/src/github.com/dlock_raft
 ENTRYPOINT ["go", "run", "/srv/gopath/src/github.com/dlock_raft/start_node.go"]

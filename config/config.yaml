@@ -27,6 +27,6 @@ parameters:
   log_back_up_interval: 1000
 storage:
   # the path for log file
-  log_path: "../var/"
+  log_path: "./var/"
   # the path for persistent entry storage
-  entry_storage_path: "../var/persistence.db"
+  entry_storage_path: "./var/persistence.db"

@@ -7,13 +7,14 @@ import (
 	"github.com/dlock_raft/utils"
 	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
 
 const (
 	// the fixed path for yaml format config file
-	ConfigYamlFilePath = "../config/config.yaml"
+	ConfigYamlFilePath = "config/config.yaml"
 )
 
 var ReadConfigYamlError = errors.New("dlock_raft.init_node: Read yaml config error")
@@ -76,7 +77,7 @@ func NewNode() (*Node, error){
 	// new log object, with log path read in node config
 	currentTimeString := time.Now().Format("20060102-150405")
 	logFileName := nodeConfigInstance.Storage.LogPath + "Dlock-" +
-		currentTimeString + "-" + string(nodeConfigInstance.Id.SelfId) + ".log"
+		currentTimeString + "-" + strconv.Itoa(int(nodeConfigInstance.Id.SelfId)) + ".log"
 	logFileHandler, err2 := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err2 != nil {
 		return nil, err2
@@ -106,7 +107,16 @@ func NewNode() (*Node, error){
 	nodeContextInstance.LastBackupIndex = logMemory.MaximumIndex()
 	nodeContextInstance.CommitIndex = logMemory.MaximumIndex()
 	nodeContextInstance.LastAppliedIndex = logMemory.MaximumIndex()
+	if logMemory.MaximumIndex() != 0 {
+		lastEntry, err := logMemory.FetchLogEntry(logMemory.MaximumIndex())
+		if err != nil {
+			nodeLoggerInstance.Errorf("Read the Last LogEntry fails, entry index %d", logMemory.MaximumIndex())
+			return nil, RecoverLogMemoryError
+		}
+		nodeContextInstance.CurrentTerm = lastEntry.Entry.Term
+	}
 	nodeLoggerInstance.Infof("Reconstruct in-memory LogMemory succeeded, read %d bytes.", readBytes)
+
 	// init state map in memory from LogMemory
 	stateMapDLock, err6 := storage.NewStateMapMemoryDLock("DLock")
 	stateMapKVStore, err7 := storage.NewStateMapMemoryKVStore("KVStore")
@@ -115,11 +125,15 @@ func NewNode() (*Node, error){
 		return nil, InitStateMapError
 	}
 	// update state map by LogMemory
-	err8 := stateMapDLock.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
-	err9 := stateMapKVStore.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
-	if err8 != nil || err9 != nil {
-		nodeLoggerInstance.Errorf("Init state map fails, error: %s, %s.", err8, err9)
-		return nil, InitStateMapError
+	if logMemory.MaximumIndex() >= 1 {
+		err8 := stateMapDLock.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
+		err9 := stateMapKVStore.UpdateStateFromLogMemory(logMemory, 1, logMemory.MaximumIndex())
+		if err8 != nil || err9 != nil {
+			nodeLoggerInstance.Errorf("Update state map from db fails, error: %s, %s.", err8, err9)
+			return nil, InitStateMapError
+		}
+	} else {
+		nodeLoggerInstance.Infof("Creating StateMaps from scratch, no available entries.")
 	}
 
 	// construct a new node object
@@ -132,7 +146,7 @@ func NewNode() (*Node, error){
 		LogEntryInMemory:    logMemory,
 	}
 
-	// init peer node objects
+	// init peer node objects, with node config existing
 	peerList, err10 := NewPeerNodeListFromConfig(node)
 	if err10 != nil {
 		nodeLoggerInstance.Errorf("New Peer list init fails, error: %s.", err10)
@@ -140,7 +154,7 @@ func NewNode() (*Node, error){
 	}
 	node.PeerList = peerList
 
-	// start the raft server for P2P
+	// start the raft server for P2P, with node config existing
 	node.NodeServer, err = NewGrpcServer(node)
 	if err != nil {
 		nodeLoggerInstance.Errorf("New Peer list init fails, error: %s.", err10)
@@ -149,8 +163,12 @@ func NewNode() (*Node, error){
 	return node, nil
 }
 
-// the entry point of raft dlock
+// the entry point of raft-based dlock
 func (n* Node) InitRaftConsensusModule() {
+	// begin as a Follower, waiting to enter election
+	if n.NodeContextInstance.NodeState == Dead {
+		n.NodeContextInstance.NodeState = Follower
+	}
 	go n.NodeServer.StartService()
 	go n.RunElectionDetectorModule()
 }
@@ -172,6 +190,8 @@ func (n *Node) RunElectionDetectorModule() {
 	n.mutex.Lock()
 	startElectionTerm := n.NodeContextInstance.CurrentTerm
 	n.mutex.Unlock()
+	n.NodeLogger.Infof("Start Election Module for Term %d, election timeout %s",
+		startElectionTerm, electionTimeout)
 
 	// the ticker, every 10 ms ticks once
 	ticker := time.NewTicker(15 * time.Millisecond)
@@ -196,12 +216,14 @@ func (n *Node) RunElectionDetectorModule() {
 		}
 
 		// if the time experienced exceeds election timeout, begin an election module
-		if timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime);
-								timeExperienced >= electionTimeout {
+		timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime)
+		if timeExperienced >= electionTimeout{
+			n.NodeLogger.Infof("Entering the candidate vote module, Term %d", startElectionTerm)
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
 			return
 		}
+		n.mutex.Unlock()
 	}
 }
 
@@ -234,18 +256,23 @@ func (n *Node) StartCandidateVoteModule() {
 		go func(peerObj *PeerNode) {
 			n.mutex.Lock()
 			// get the local maximum index and corresponding term
-			maximumEntry, err := n.LogEntryInMemory.FetchLogEntry(n.LogEntryInMemory.MaximumIndex())
-			if err != nil {
-				n.NodeLogger.Errorf("Get entry with maximum index fails, maximum index: %d",
-					n.LogEntryInMemory.MaximumIndex())
-				n.mutex.Unlock()
-				return
+			maximumEntryTerm := uint64(0)
+			if n.LogEntryInMemory.MaximumIndex() != 0 {
+				maximumEntry, err := n.LogEntryInMemory.FetchLogEntry(n.LogEntryInMemory.MaximumIndex())
+				if err != nil {
+					n.NodeLogger.Errorf("Get entry with maximum index fails, maximum index: %d",
+						n.LogEntryInMemory.MaximumIndex())
+					n.mutex.Unlock()
+					return
+				}
+				maximumEntryTerm = maximumEntry.Entry.Term
 			}
+			// construct request for Candidate Vote
 			request := &protobuf.CandidateVotesRequest{
 				Term:           n.NodeContextInstance.CurrentTerm,
 				NodeId:         n.NodeConfigInstance.Id.SelfId,
-				PrevEntryIndex: maximumEntry.Entry.Index,
-				PrevEntryTerm:  maximumEntry.Entry.Term,
+				PrevEntryIndex: n.LogEntryInMemory.MaximumIndex(),
+				PrevEntryTerm:  maximumEntryTerm,
 			}
 			n.NodeLogger.Infof("The Candidate Vote request: %+v", request)
 			// release mutex before sending GRPC request

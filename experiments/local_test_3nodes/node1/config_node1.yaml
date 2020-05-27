@@ -9,10 +9,10 @@ id:
     - 3
 network:
   # the node addresses, format ip:port
-  self_address: "192.168.2.30:14005"
+  self_address: "0.0.0.0:14005"
   peer_address:
-    - "192.168.0.2:14005"
-    - "192.168.0.3:14005"
+    - "raft_peer2:14006"
+    - "raft_peer3:14007"
 parameters:
   # the interval for leader to push heart beat package to followers, unit:ms
   heart_beat_interval: 50

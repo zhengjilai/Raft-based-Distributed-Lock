@@ -3,16 +3,16 @@
 id:
   # the node ids, format uint32
   # Warning: Do not use 0 as it is reserved for indicating unknown !
-  self_id: 1
+  self_id: 3
   peer_id:
+    - 1
     - 2
-    - 3
 network:
   # the node addresses, format ip:port
-  self_address: "192.168.2.30:14005"
+  self_address: "0.0.0.0:14007"
   peer_address:
-    - "192.168.0.2:14005"
-    - "192.168.0.3:14005"
+    - "raft_peer1:14005"
+    - "raft_peer2:14006"
 parameters:
   # the interval for leader to push heart beat package to followers, unit:ms
   heart_beat_interval: 50

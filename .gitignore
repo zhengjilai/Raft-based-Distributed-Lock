@@ -1,4 +1,5 @@
 var/*.log
 var/test*
+var/*.db
 .git
 .idea
