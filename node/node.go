@@ -2,6 +2,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"github.com/dlock_raft/protobuf"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
@@ -189,6 +190,8 @@ func (n *Node) RunElectionDetectorModule() {
 	electionTimeout := n.RandomElectionTimeout()
 	n.mutex.Lock()
 	startElectionTerm := n.NodeContextInstance.CurrentTerm
+	// refresh the election restart time, very important !
+	n.NodeContextInstance.ElectionRestartTime = time.Now()
 	n.mutex.Unlock()
 	n.NodeLogger.Infof("Start Election Module for Term %d, election timeout %s",
 		startElectionTerm, electionTimeout)
@@ -218,7 +221,8 @@ func (n *Node) RunElectionDetectorModule() {
 		// if the time experienced exceeds election timeout, begin an election module
 		timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime)
 		if timeExperienced >= electionTimeout{
-			n.NodeLogger.Infof("Entering the candidate vote module, Term %d", startElectionTerm)
+			n.NodeLogger.Infof("Entering the candidate vote module, Term %d," +
+				" time experienced %s", startElectionTerm, timeExperienced)
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
 			return
@@ -250,11 +254,26 @@ func (n *Node) StartCandidateVoteModule() {
 	voteMap := make(map[uint32]bool)
 	voteMap[n.NodeConfigInstance.Id.SelfId] = true
 
-	// create goroutine for every single peer
+	// create goroutine for every single peer for this term
 	for _, peer := range n.PeerList {
 		voteMap[peer.PeerId] = false
 		go func(peerObj *PeerNode) {
 			n.mutex.Lock()
+
+			// state has changed to leader or dead, jump out of election module, as it won't become candidate
+			if n.NodeContextInstance.NodeState != Candidate && n.NodeContextInstance.NodeState != Follower {
+				n.NodeLogger.Infof("Candidate Vote module has found a state change: %d",
+					n.NodeContextInstance.NodeState)
+				n.mutex.Unlock()
+				return
+			}
+			// if term changes, also jump out of election module
+			if n.NodeContextInstance.CurrentTerm > savedCurrentTerm {
+				n.NodeLogger.Infof("Candidate Vote module has found a term change: %d", n.NodeContextInstance.CurrentTerm)
+				n.mutex.Unlock()
+				return
+			}
+
 			// get the local maximum index and corresponding term
 			maximumEntryTerm := uint64(0)
 			if n.LogEntryInMemory.MaximumIndex() != 0 {
@@ -269,11 +288,13 @@ func (n *Node) StartCandidateVoteModule() {
 			}
 			// construct request for Candidate Vote
 			request := &protobuf.CandidateVotesRequest{
-				Term:           n.NodeContextInstance.CurrentTerm,
+				Term:           savedCurrentTerm,
 				NodeId:         n.NodeConfigInstance.Id.SelfId,
 				PrevEntryIndex: n.LogEntryInMemory.MaximumIndex(),
 				PrevEntryTerm:  maximumEntryTerm,
 			}
+			fmt.Println(request)
+			fmt.Println("Prev:", request.PrevEntryIndex)
 			n.NodeLogger.Infof("The Candidate Vote request: %+v", request)
 			// release mutex before sending GRPC request
 			n.mutex.Unlock()
@@ -297,18 +318,22 @@ func (n *Node) StartCandidateVoteModule() {
 			// term has increased
 			// note that the term to compared is the term when StartCandidateVoteModule starts
 			if response.Term > savedCurrentTerm {
-				n.NodeLogger.Infof("During waiting Candidate Vote response, term changes to %d",
+				n.NodeLogger.Infof("During waiting CandidateVote response, term changes to %d",
 					response.Term)
 				n.BecomeFollower(response.Term)
 				return
 			} else if response.Term == savedCurrentTerm && n.NodeContextInstance.CurrentTerm == savedCurrentTerm {
 				// if the candidate vote is still in time
+				fmt.Println("Accepted?", response.Accepted)
 				if response.Accepted == true && voteMap[peerObj.PeerId] == false {
 					collectedVote += 1
+					voteMap[peerObj.PeerId] = true
+					n.NodeLogger.Infof("Receive successful CandidateVote response from node %d, now " +
+						"have %d votes in term %d", response.NodeId, collectedVote, response.Term)
 				}
 				// if collected vote exceeds n/2 + 1, then become a leader
-				if 2 * collectedVote > len(n.NodeConfigInstance.Id.PeerId) {
-					n.NodeLogger.Infof("Candidate Vote collects %d votes in term %d, become leader",
+				if 2 * collectedVote > len(n.NodeConfigInstance.Id.PeerId) + 1 {
+					n.NodeLogger.Infof("Node collects %d CandidateVote response in term %d, now become leader.",
 						collectedVote, response.Term)
 					n.BecomeLeader()
 					return
@@ -368,13 +393,10 @@ func (n *Node) BecomeLeader() {
 				// Reset timer
 				ticker.Stop()
 				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
+
 			// if semaphore for send AppendEntries is triggered
-			case _, ok := <-n.NodeContextInstance.AppendEntryChan:
-				if ok == true {
-					sendTag = true
-				} else {
-					return
-				}
+			case <-n.NodeContextInstance.AppendEntryChan:
+				sendTag = true
 				// Reset timer
 				ticker.Stop()
 				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)

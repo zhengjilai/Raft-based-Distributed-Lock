@@ -1,8 +1,5 @@
 version: '2'
 
-networks:
-  raft_local:
-
 services:
   raft_peer1:
     container_name: peer1

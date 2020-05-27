@@ -19,14 +19,14 @@ parameters:
   # the timeout for every AppendEntriesRequest, unit:ms
   append_entries_timeout: 150
   # the maximum and minimum time before become a candidate, unit:ms
-  min_wait_time_candidate: 150
-  max_wait_time_candidate: 300
+  min_wait_time_candidate: 300
+  max_wait_time_candidate: 600
   # maximum number of log entries in RecoverEntriesResponse
   max_log_units_recover: 200
   # the interval for log entries backing up
   log_back_up_interval: 1000
 storage:
   # the path for log file
-  log_path: "../var/"
+  log_path: "./var/"
   # the path for persistent entry storage
-  entry_storage_path: "../var/persistence.db"
+  entry_storage_path: "./var/persistence.db"

@@ -154,7 +154,7 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
 		return nil, GRPCServerDeadError
 	}
-	gs.NodeRef.NodeLogger.Infof("Begin to precess Candidate Votes request, %+v.", request)
+	gs.NodeRef.NodeLogger.Infof("Begin to process Candidate Votes request, %+v.", request)
 
 	// the original response
 	response := &pb.CandidateVotesResponse{
@@ -180,16 +180,21 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 		// note that votedPeer = 0 means the local node haz voted for no one
 
 		// get the local maximum index and corresponding term
-		maximumEntry, err := gs.NodeRef.LogEntryInMemory.FetchLogEntry(gs.NodeRef.LogEntryInMemory.MaximumIndex())
-		if err != nil {
-			return nil, err
+		lastEntryTerm := uint64(0)
+		if gs.NodeRef.LogEntryInMemory.MaximumIndex() != 0 {
+			maximumEntry, err := gs.NodeRef.LogEntryInMemory.FetchLogEntry(gs.NodeRef.LogEntryInMemory.MaximumIndex())
+			if err != nil {
+				return nil, err
+			}
+			lastEntryTerm = maximumEntry.Entry.Term
 		}
+
 		// the node will only vote for those candidate with:
 		// 1. has longer LogEntry list and has the same term
 		// 2. has a LogEntryList with higher term
-		if request.PrevEntryTerm > maximumEntry.Entry.Term ||
-			(request.PrevEntryTerm == maximumEntry.Entry.Term &&
-				request.PrevEntryIndex > maximumEntry.Entry.Term ) {
+		if request.PrevEntryTerm > lastEntryTerm ||
+			(request.PrevEntryTerm == lastEntryTerm &&
+				request.PrevEntryIndex >= gs.NodeRef.LogEntryInMemory.MaximumIndex() ) {
 			// vote for the specific candidate
 			response.Accepted = true
 			gs.NodeRef.NodeContextInstance.VotedPeer = request.NodeId

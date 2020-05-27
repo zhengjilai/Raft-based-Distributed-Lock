@@ -1,5 +1,5 @@
-var/*.log
+*.log
 var/test*
-var/*.db
+*.db
 .git
 .idea

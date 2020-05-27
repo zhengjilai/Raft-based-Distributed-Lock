@@ -14,7 +14,8 @@ func TestConcurrency(t *testing.T){
 	peerIdList := []uint32{1,2,3,4,5}
 	group.Add(len(peerIdList))
 
-	collectedVote := 1
+	collectedVote := new(int)
+	*collectedVote = 1
 	voteMap := make(map[uint32]bool)
 	voteMap[1] = true
 
@@ -26,12 +27,12 @@ func TestConcurrency(t *testing.T){
 				group.Done()
 			}()
 			if (*&voteMap)[id] == false {
-				collectedVote += 1
+				*collectedVote += 1
 				(voteMap)[id] = true
 			}
 		}(id)
 	}
 	group.Wait()
-	fmt.Println(collectedVote)
+	fmt.Println(*collectedVote)
 	fmt.Println(voteMap)
 }

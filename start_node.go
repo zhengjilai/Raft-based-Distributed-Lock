@@ -15,12 +15,8 @@ func main()  {
 
 	// exit main goroutine normally only if a Stop signal is received
 	select {
-		case _, ok := <-nodeInstance.NodeContextInstance.StopChan:
-			if ok {
-				nodeInstance.NodeLogger.Infof("Normal exit.")
-			} else {
-				nodeInstance.NodeLogger.Infof("Abnormal exit.")
-			}
+		case <-nodeInstance.NodeContextInstance.StopChan:
+			nodeInstance.NodeLogger.Infof("Normal exit.")
 	}
 	nodeInstance.NodeLogger.Infof("Node Exit at %s", time.Now())
 }
