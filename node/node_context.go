@@ -76,7 +76,7 @@ func NewStartNodeContext(config *NodeConfig) (*NodeContext, error) {
 	if err != nil{
 		return nil, err
 	}
-	return NewNodeContext(0,0, 0, 0,
+	return NewNodeContext(1,0, 0, 0,
 		 Dead, 0, make(chan struct{}, 1), make(chan struct{}, 1), 0,
 		 time.Now(), fileData), nil
 }

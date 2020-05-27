@@ -1,0 +1,32 @@
+# Config file for distributed lock based on raft
+
+id:
+  # the node ids, format uint32
+  # Warning: Do not use 0 as it is reserved for indicating unknown !
+  self_id: 1
+  peer_id:
+    - 2
+    - 3
+network:
+  # the node addresses, format ip:port
+  self_address: "192.168.2.30:14005"
+  peer_address:
+    - "192.168.0.2:14005"
+    - "192.168.0.3:14005"
+parameters:
+  # the interval for leader to push heart beat package to followers, unit:ms
+  heart_beat_interval: 50
+  # the timeout for every AppendEntriesRequest, unit:ms
+  append_entries_timeout: 150
+  # the maximum and minimum time before become a candidate, unit:ms
+  min_wait_time_candidate: 150
+  max_wait_time_candidate: 300
+  # maximum number of log entries in RecoverEntriesResponse
+  max_log_units_recover: 200
+  # the interval for log entries backing up
+  log_back_up_interval: 1000
+storage:
+  # the path for log file
+  log_path: "../var/"
+  # the path for persistent entry storage
+  entry_storage_path: "../var/persistence.db"

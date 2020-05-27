@@ -218,20 +218,23 @@ func (gs *GrpcServerImpl) RecoverEntriesService(ctx context.Context,
 }
 
 // should input the self
-func (gs *GrpcServerImpl) StartService() error {
+func (gs *GrpcServerImpl) StartService() {
 
 	// get the listing address
 	address := gs.NodeRef.NodeConfigInstance.Network.SelfAddress
 	splittedAddress := strings.Split(address, ":")
 	if len(splittedAddress) != 2 {
-		return GRPCServerAddressError
+		gs.NodeRef.NodeLogger.Errorf("GRPC address: %s", GRPCServerAddressError)
+		return
 	}
 
 	// listening at a specific port
 	listener, err := net.Listen("tcp", ":" + splittedAddress[1])
 	if err != nil {
-		return err
+		gs.NodeRef.NodeLogger.Errorf("GRPC Listener init error: %s", err)
+		return
 	}
+
 	// start a new grpc server
 	gs.grpcServer = grpc.NewServer()
 	pb.RegisterRaftRPCServerServer(gs.grpcServer, gs)
@@ -239,8 +242,8 @@ func (gs *GrpcServerImpl) StartService() error {
 	// start service
 	err = gs.grpcServer.Serve(listener)
 	if err != nil {
-		return err
+		gs.NodeRef.NodeLogger.Errorf("GRPC server init error: %s", err)
+		return
 	}
-	return nil
 }
 

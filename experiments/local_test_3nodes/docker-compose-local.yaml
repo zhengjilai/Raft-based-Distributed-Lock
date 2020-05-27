@@ -1,0 +1,38 @@
+version: '2'
+
+networks:
+  raft_local:
+
+services:
+  raft_peer1:
+    container_name: peer1
+    image: dlock_raft:0.0.1
+    volumes:
+      # the path for log and persistent local entry storage
+      - ./node1/var:/srv/gopath/src/github.com/dlock_raft/var
+      # the config file for peer1
+      - ./node1/config_node1.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
+    ports:
+      - "14005:14005"
+
+  raft_peer2:
+    container_name: peer2
+    image: dlock_raft:0.0.1
+    volumes:
+      # the path for log and persistent local entry storage
+      - ./node2/var:/srv/gopath/src/github.com/dlock_raft/var
+      # the config file for peer2
+      - ./node2/config_node2.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
+    ports:
+      - "14006:14006"
+
+  raft_peer3:
+    container_name: peer3
+    image: dlock_raft:0.0.1
+    volumes:
+      # the path for log and persistent local entry storage
+      - ./node3/var:/srv/gopath/src/github.com/dlock_raft/var
+      # the config file for peer3
+      - ./node3/config_node3.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
+    ports:
+      - "14007:14007"

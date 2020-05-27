@@ -22,6 +22,7 @@ var InitContextError = errors.New("dlock_raft.init_node: Init node context error
 var RecoverLogMemoryError = errors.New("dlock_raft.init_node: Recover log memory error")
 var InitStateMapError = errors.New("dlock_raft.init_node: Init state map error")
 var InitPeerListError = errors.New("dlock_raft.init_node: Init peer list error")
+var InitP2PServerError = errors.New("dlock_raft.init_node: Init Peer2Peer GRPC server error")
 
 type Node struct{
 
@@ -33,6 +34,9 @@ type Node struct{
 
 	// the node context
 	NodeContextInstance *NodeContext
+
+	// the node P2P server
+	NodeServer *GrpcServerImpl
 
 	// the in-memory state maps
 	StateMapKVStore *storage.StateMapMemoryKVStore
@@ -58,6 +62,7 @@ type NodeOperators interface {
 	SendAppendEntriesToPeers(peerIdList []uint32)
 	CommitToStateMap()
 	BackUpLogMemoryToDisk()
+	InitRaftConsensusModule()
 
 }
 
@@ -135,7 +140,19 @@ func NewNode() (*Node, error){
 	}
 	node.PeerList = peerList
 
+	// start the raft server for P2P
+	node.NodeServer, err = NewGrpcServer(node)
+	if err != nil {
+		nodeLoggerInstance.Errorf("New Peer list init fails, error: %s.", err10)
+		return nil, InitP2PServerError
+	}
 	return node, nil
+}
+
+// the entry point of raft dlock
+func (n* Node) InitRaftConsensusModule() {
+	go n.NodeServer.StartService()
+	go n.RunElectionDetectorModule()
 }
 
 // get a random election timeout
@@ -179,7 +196,8 @@ func (n *Node) RunElectionDetectorModule() {
 		}
 
 		// if the time experienced exceeds election timeout, begin an election module
-		if timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime); timeExperienced >= electionTimeout{
+		if timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime);
+								timeExperienced >= electionTimeout {
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
 			return
