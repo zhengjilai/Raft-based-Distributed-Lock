@@ -170,6 +170,10 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 		gs.NodeRef.BecomeFollower(request.Term)
 		// refresh the current term
 		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
+
+		// don't forget setting Accepted !!!!!
+		response.Accepted = true
+		gs.NodeRef.NodeContextInstance.VotedPeer = request.NodeId
 		// reset the election module, for receiving Candidate vote from higher term
 		gs.NodeRef.NodeContextInstance.ElectionRestartTime = time.Now()
 

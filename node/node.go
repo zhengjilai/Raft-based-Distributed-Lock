@@ -221,7 +221,7 @@ func (n *Node) RunElectionDetectorModule() {
 		// if the time experienced exceeds election timeout, begin an election module
 		timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime)
 		if timeExperienced >= electionTimeout{
-			n.NodeLogger.Infof("Entering the candidate vote module, Term %d," +
+			n.NodeLogger.Infof("Entering the candidate vote module, Current Term %d," +
 				" time experienced %s", startElectionTerm, timeExperienced)
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
@@ -247,7 +247,7 @@ func (n *Node) StartCandidateVoteModule() {
 	n.NodeContextInstance.VotedPeer = n.NodeConfigInstance.Id.SelfId
 	// reset the election time ticker
 	n.NodeContextInstance.ElectionRestartTime = time.Now()
-	n.NodeLogger.Infof("Begin the election module with term %d", n.NodeContextInstance.CurrentTerm)
+	n.NodeLogger.Infof("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
 
 	// the collected vote number and map
 	collectedVote := 1
@@ -269,7 +269,8 @@ func (n *Node) StartCandidateVoteModule() {
 			}
 			// if term changes, also jump out of election module
 			if n.NodeContextInstance.CurrentTerm > savedCurrentTerm {
-				n.NodeLogger.Infof("Candidate Vote module has found a term change: %d", n.NodeContextInstance.CurrentTerm)
+				n.NodeLogger.Infof("Candidate Vote module has found a term change: from %d to %d",
+					savedCurrentTerm, n.NodeContextInstance.CurrentTerm)
 				n.mutex.Unlock()
 				return
 			}
@@ -293,8 +294,6 @@ func (n *Node) StartCandidateVoteModule() {
 				PrevEntryIndex: n.LogEntryInMemory.MaximumIndex(),
 				PrevEntryTerm:  maximumEntryTerm,
 			}
-			fmt.Println(request)
-			fmt.Println("Prev:", request.PrevEntryIndex)
 			n.NodeLogger.Infof("The Candidate Vote request: %+v", request)
 			// release mutex before sending GRPC request
 			n.mutex.Unlock()
@@ -324,7 +323,6 @@ func (n *Node) StartCandidateVoteModule() {
 				return
 			} else if response.Term == savedCurrentTerm && n.NodeContextInstance.CurrentTerm == savedCurrentTerm {
 				// if the candidate vote is still in time
-				fmt.Println("Accepted?", response.Accepted)
 				if response.Accepted == true && voteMap[peerObj.PeerId] == false {
 					collectedVote += 1
 					voteMap[peerObj.PeerId] = true
@@ -378,7 +376,6 @@ func (n *Node) BecomeLeader() {
 	// for every interval, if no AppendEntries is sent, then send heartbeat (empty AppendEntries)
 	// every time AppendEntries is sent, reset the timer
 	ticker := time.NewTimer(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
-	defer ticker.Stop()
 
 	// start a new go routine for hear beat
 	go func() {
@@ -389,26 +386,35 @@ func (n *Node) BecomeLeader() {
 			select {
 			// if tick time exceeds heartbeat interval
 			case <-ticker.C:
+				n.NodeLogger.Infof("Sending AppendEntries to all peers is triggered by heartbeat, term %d",
+					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
 				ticker.Stop()
 				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 
-			// if semaphore for send AppendEntries is triggered
+			// or if semaphore for sending AppendEntries is triggered deliberately
 			case <-n.NodeContextInstance.AppendEntryChan:
+				n.NodeLogger.Infof("Sending AppendEntries to all peers is triggered by new Entries, term %d",
+					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
 				ticker.Stop()
 				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 			}
 
+			fmt.Println("Leader Heat Beat.")
+
 			// if get the sendTag, then send AppendEntries
 			if sendTag {
 				n.mutex.Lock()
-				if n.NodeContextInstance.CurrentTerm == Leader {
+				if n.NodeContextInstance.NodeState == Leader {
+					n.NodeLogger.Infof("Now begin to send AppendEntries to all peers, term %d",
+						n.NodeContextInstance.CurrentTerm)
 					n.mutex.Unlock()
 					n.SendAppendEntriesToPeers(nil)
 				} else {
+					ticker.Stop()
 					n.mutex.Unlock()
 					return
 				}
@@ -426,13 +432,14 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 	defer n.mutex.Unlock()
 	// the maximum number of LogEntries appended each time
 	maximumEntryListLength := uint64(n.NodeConfigInstance.Parameters.MaxLogUnitsRecover)
-	// local term when begin to sen AppendEntries
+	// local term when begin to send AppendEntries
 	startCurrentTerm:= n.NodeContextInstance.CurrentTerm
 
 	for i, peer := range n.PeerList {
 		// peerList == nil means send to all peers
 		// if peerList != nil, only send to peers in peerList
 		if peerList != nil && !utils.NumberInUint32List(peerList, peer.PeerId) {
+			n.NodeLogger.Infof("When sending AppendEntries, Node %d is skipped.", peer.PeerId)
 			continue
 		}
 		indexIntermediate := i
@@ -451,6 +458,9 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			maximumIndex := n.LogEntryInMemory.MaximumIndex()
 			// note that entry list begins from nextIndex, and length new never exceeds maximumEntryListLength
 			entryLength := utils.Uint64Min(maximumEntryListLength, maximumIndex - prevIndexRecord)
+			n.NodeLogger.Infof("Before sending AppendEntries to peer %d, nextIndex: %d," +
+				" prevIndex: %d, maximumIndex: %d, length of entry to be attached: %d",
+				n.PeerList[indexIntermediate].PeerId, nextIndexRecord, prevIndexRecord, maximumIndex, entryLength)
 
 			// fill in the entry list for append
 			entryList := make([]*protobuf.Entry, entryLength)
@@ -465,11 +475,15 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			}
 
 			// get prevTerm
-			logEntryPrev, err := n.LogEntryInMemory.FetchLogEntry(prevIndexRecord)
-			if err != nil {
-				n.NodeLogger.Errorf("Error happens when fetching LogEntry %d, error: %s", prevIndexRecord, err)
-				n.mutex.Unlock()
-				return
+			prevEntryTerm := uint64(0)
+			if prevIndexRecord != 0{
+				logEntryPrev, err := n.LogEntryInMemory.FetchLogEntry(prevIndexRecord)
+				if err != nil {
+					n.NodeLogger.Errorf("Error happens when fetching LogEntry %d, error: %s", prevIndexRecord, err)
+					n.mutex.Unlock()
+					return
+				}
+				prevEntryTerm = logEntryPrev.Entry.Term
 			}
 
 			// construct the request
@@ -477,13 +491,15 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 				Term:             n.NodeContextInstance.CurrentTerm,
 				NodeId:           n.NodeConfigInstance.Id.SelfId,
 				PrevEntryIndex:   prevIndexRecord,
-				PrevEntryTerm:    logEntryPrev.Entry.Term,
+				PrevEntryTerm:    prevEntryTerm,
 				CommitEntryIndex: n.NodeContextInstance.CommitIndex,
 				EntryList:        entryList,
 			}
 			// unlock before send the request by GRPC
 			n.mutex.Unlock()
 
+			n.NodeLogger.Infof("Sending AppendEntries to peer %d, %+v.",
+				n.PeerList[indexIntermediate].PeerId, request)
 			response, err := n.PeerList[indexIntermediate].GrpcClient.SendGrpcAppendEntries(request)
 			if err != nil {
 				n.NodeLogger.Errorf("Send GRPC AppendEntries fails, error: %s.", err)
@@ -511,8 +527,13 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			// if still a valid leader, then process the response
 			if response.Term == startCurrentTerm{
 				if response.Success {
-					n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
-						prevIndexRecord + 1, prevIndexRecord + entryLength)
+					if prevIndexRecord + 1 <= prevIndexRecord + entryLength {
+						n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
+							prevIndexRecord + 1, prevIndexRecord + entryLength)
+					} else {
+						n.NodeLogger.Infof("Peer %d append no entries.", response.NodeId)
+					}
+
 					// update nextIndex
 					n.PeerList[indexIntermediate].NextIndex = nextIndexRecord + entryLength
 					// if prevIndex matches in peers' local LogMemory (Success == true)

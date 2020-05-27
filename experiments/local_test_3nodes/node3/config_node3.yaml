@@ -19,8 +19,8 @@ parameters:
   # the timeout for every AppendEntriesRequest, unit:ms
   append_entries_timeout: 150
   # the maximum and minimum time before become a candidate, unit:ms
-  min_wait_time_candidate: 300
-  max_wait_time_candidate: 600
+  min_wait_time_candidate: 150
+  max_wait_time_candidate: 400
   # maximum number of log entries in RecoverEntriesResponse
   max_log_units_recover: 200
   # the interval for log entries backing up
