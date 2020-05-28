@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type GrpcClientImpl struct {
+type GrpcP2PClientImpl struct {
 
 	// the connect peer address, format ip:port
 	peerAddress string
@@ -18,17 +18,17 @@ type GrpcClientImpl struct {
 	NodeRef *Node
 }
 
-func NewGrpcClient(address string, node *Node) *GrpcClientImpl {
+func NewGrpcP2PClientImpl(address string, node *Node) *GrpcP2PClientImpl {
 
 	// construct the feedback object
-	grpcClient := new(GrpcClientImpl)
+	grpcClient := new(GrpcP2PClientImpl)
 	grpcClient.peerAddress = address
 	grpcClient.conn = nil
 	grpcClient.NodeRef = node
 	return grpcClient
 }
 
-func (gc *GrpcClientImpl) StartConnection() error {
+func (gc *GrpcP2PClientImpl) StartConnection() error {
 	// dial the server without secure option
 	conn, err := grpc.Dial(gc.peerAddress, grpc.WithInsecure())
 	if err != nil {
@@ -38,14 +38,14 @@ func (gc *GrpcClientImpl) StartConnection() error {
 	return nil
 }
 
-func (gc *GrpcClientImpl) GetConnectionState() connectivity.State {
+func (gc *GrpcP2PClientImpl) GetConnectionState() connectivity.State {
 	if gc.conn != nil {
 		return gc.conn.GetState()
 	}
 	return connectivity.Idle
 }
 
-func (gc *GrpcClientImpl) IsAvailable() bool {
+func (gc *GrpcP2PClientImpl) IsAvailable() bool {
 	if gc.conn != nil {
 		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
 		return gc.conn.GetState() == connectivity.Ready
@@ -54,7 +54,7 @@ func (gc *GrpcClientImpl) IsAvailable() bool {
 	return false
 }
 
-func (gc *GrpcClientImpl) ReConnect() error {
+func (gc *GrpcP2PClientImpl) ReConnect() error {
 	if gc.conn != nil && gc.conn.GetState() == connectivity.TransientFailure {
 		err := gc.conn.Close()
 		if err != nil {
@@ -71,7 +71,7 @@ func (gc *GrpcClientImpl) ReConnect() error {
 	return nil
 }
 
-func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
+func (gc *GrpcP2PClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
@@ -93,7 +93,7 @@ func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.NodeRef.NodeLogger.Infof("Begin to send AppendEntry to %s.", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to send AppendEntry %+v to %s.", request, gc.peerAddress)
 	response, err := clientAppendEntry.AppendEntriesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
@@ -103,7 +103,7 @@ func (gc *GrpcClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequest
 	return response, nil
 }
 
-func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesRequest) (*pb.CandidateVotesResponse, error){
+func (gc *GrpcP2PClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesRequest) (*pb.CandidateVotesResponse, error){
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
@@ -125,7 +125,7 @@ func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesReque
 	defer cancel()
 
 	// handle response
-	gc.NodeRef.NodeLogger.Infof("Begin to send CandidateVote to %s.", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to send CandidateVote %+v to %s.", request, gc.peerAddress)
 	response, err := clientCandidateVote.CandidateVotesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
@@ -135,7 +135,7 @@ func (gc *GrpcClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesReque
 	return response, nil
 }
 
-func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesRequest) (*pb.RecoverEntriesResponse, error){
+func (gc *GrpcP2PClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesRequest) (*pb.RecoverEntriesResponse, error){
 
 	// test whether connection still exists
 	if !gc.IsAvailable() {
@@ -157,7 +157,7 @@ func (gc *GrpcClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesReque
 	defer cancel()
 
 	// handle response
-	gc.NodeRef.NodeLogger.Infof("Begin to sen RecoverEntries to %s.", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Infof("Begin to sen RecoverEntries %+v to %s.", request, gc.peerAddress)
 	response, err := clientRecoverEntries.RecoverEntriesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)

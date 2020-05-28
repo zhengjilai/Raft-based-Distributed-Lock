@@ -25,6 +25,7 @@ var RecoverLogMemoryError = errors.New("dlock_raft.init_node: Recover log memory
 var InitStateMapError = errors.New("dlock_raft.init_node: Init state map error")
 var InitPeerListError = errors.New("dlock_raft.init_node: Init peer list error")
 var InitP2PServerError = errors.New("dlock_raft.init_node: Init Peer2Peer GRPC server error")
+var InitCliSrvServerError = errors.New("dlock_raft.init_node: Init Cli-Srv GRPC server error")
 
 type Node struct{
 
@@ -38,7 +39,9 @@ type Node struct{
 	NodeContextInstance *NodeContext
 
 	// the node P2P server
-	NodeServer *GrpcServerImpl
+	NodeServer *GrpcP2PServerImpl
+	// the node cli-svr server
+	CliServer *GRPCCliSrvServerImpl
 
 	// the in-memory state maps
 	StateMapKVStore *storage.StateMapMemoryKVStore
@@ -156,12 +159,20 @@ func NewNode() (*Node, error){
 	node.PeerList = peerList
 
 	// start the raft server for P2P, with node config existing
-	node.NodeServer, err = NewGrpcServer(node)
+	node.NodeServer, err = NewGrpcP2PServerImpl(node)
 	if err != nil {
-		nodeLoggerInstance.Errorf("New Peer list init fails, error: %s.", err10)
+		nodeLoggerInstance.Errorf("New P2P transportation server init fails, error: %s.", err10)
 		return nil, InitP2PServerError
 	}
+
+	// start the raft server for cli-srv, with node config existing
+	node.CliServer, err = NewGRPCCliSrvServerImpl(node)
+	if err != nil {
+		nodeLoggerInstance.Errorf("New cli-srv transportation server init fails, error: %s.", err10)
+		return nil, InitCliSrvServerError
+	}
 	return node, nil
+
 }
 
 // the entry point of raft-based dlock
@@ -172,6 +183,7 @@ func (n* Node) InitRaftConsensusModule() {
 	}
 	go n.NodeServer.StartService()
 	go n.RunElectionDetectorModule()
+	go n.CliServer.StartService()
 }
 
 // get a random election timeout
@@ -247,6 +259,9 @@ func (n *Node) StartCandidateVoteModule() {
 	n.NodeContextInstance.VotedPeer = n.NodeConfigInstance.Id.SelfId
 	// reset the election time ticker
 	n.NodeContextInstance.ElectionRestartTime = time.Now()
+	// reset hop
+	n.NodeContextInstance.HopToCurrentLeaderId = 0
+
 	n.NodeLogger.Infof("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
 
 	// the collected vote number and map

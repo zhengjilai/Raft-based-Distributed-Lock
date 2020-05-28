@@ -14,12 +14,12 @@ import (
 	"time"
 )
 
-var GRPCServerAddressError = errors.New("dlock_raft.gprc_server: " +
+var GrpcP2PServerAddressError = errors.New("dlock_raft.gprc_server: " +
 	"the listening address is wrong, should have format ip:port")
-var GRPCServerDeadError = errors.New("dlock_raft.gprc_server: " +
+var GrpcP2PServerDeadError = errors.New("dlock_raft.gprc_server: " +
 	"the node state is Dead, should start it")
 
-type GrpcServerImpl struct {
+type GrpcP2PServerImpl struct {
 
 	// the actual grpc server object
 	grpcServer *grpc.Server
@@ -27,13 +27,13 @@ type GrpcServerImpl struct {
 	NodeRef *Node
 }
 
-func NewGrpcServer(node *Node) (*GrpcServerImpl, error){
-	grpcServer := new(GrpcServerImpl)
+func NewGrpcP2PServerImpl(node *Node) (*GrpcP2PServerImpl, error){
+	grpcServer := new(GrpcP2PServerImpl)
 	grpcServer.NodeRef = node
 	return grpcServer, nil
 }
 
-func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
+func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 	request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 
 	// lock before doing anything
@@ -42,7 +42,7 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 
 	// if node state is Dead, stop doing anything
 	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
-		return nil, GRPCServerDeadError
+		return nil, GrpcP2PServerDeadError
 	}
 	gs.NodeRef.NodeLogger.Infof("Begin to precess AppendEntries request, %+v.", request)
 
@@ -60,6 +60,8 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 	if request.Term > gs.NodeRef.NodeContextInstance.CurrentTerm {
 		gs.NodeRef.NodeLogger.Infof("AppendEntry term %d is greater than current term %d.",
 			request.Term, gs.NodeRef.NodeContextInstance.CurrentTerm)
+		// become follower and set hopLeaderId as AppendEntries source
+		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 		gs.NodeRef.BecomeFollower(request.Term)
 		// refresh the current term
 		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
@@ -69,7 +71,9 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 	// if it is exactly the same term, then an AppendEntry should always come from the leader
 	if request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm {
 		// become follower when hear from the current leader
-		if gs.NodeRef.NodeContextInstance.NodeState != Follower{
+		if gs.NodeRef.NodeContextInstance.NodeState != Follower {
+			// become follower and set hopLeaderId as AppendEntries source
+			gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 			gs.NodeRef.BecomeFollower(request.Term)
 		}
 		// reset the election start time, for receiving heart beat (AppendEntry)
@@ -143,7 +147,7 @@ func (gs *GrpcServerImpl) AppendEntriesService(ctx context.Context,
 	return response, nil
 }
 
-func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
+func (gs *GrpcP2PServerImpl) CandidateVotesService(ctx context.Context,
 	request *pb.CandidateVotesRequest) (*pb.CandidateVotesResponse, error) {
 
 	// lock before doing anything
@@ -152,7 +156,7 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 
 	// if node state is Dead, stop doing anything
 	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
-		return nil, GRPCServerDeadError
+		return nil, GrpcP2PServerDeadError
 	}
 	gs.NodeRef.NodeLogger.Infof("Begin to process Candidate Votes request, %+v.", request)
 
@@ -167,6 +171,10 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 	if request.Term > gs.NodeRef.NodeContextInstance.CurrentTerm {
 		gs.NodeRef.NodeLogger.Infof("Candidate Vote term %d is greater than current term %d.",
 			request.Term, gs.NodeRef.NodeContextInstance.CurrentTerm)
+
+		// not sure who is the leader (or even currently there is no leader)
+		// Note that id = 0 is reserved for nobody
+		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = 0
 		gs.NodeRef.BecomeFollower(request.Term)
 		// refresh the current term
 		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
@@ -213,7 +221,7 @@ func (gs *GrpcServerImpl) CandidateVotesService(ctx context.Context,
 	return response, nil
 }
 
-func (gs *GrpcServerImpl) RecoverEntriesService(ctx context.Context,
+func (gs *GrpcP2PServerImpl) RecoverEntriesService(ctx context.Context,
 	request *pb.RecoverEntriesRequest) (*pb.RecoverEntriesResponse, error) {
 
 	return &pb.RecoverEntriesResponse{
@@ -227,13 +235,13 @@ func (gs *GrpcServerImpl) RecoverEntriesService(ctx context.Context,
 }
 
 // should input the self
-func (gs *GrpcServerImpl) StartService() {
+func (gs *GrpcP2PServerImpl) StartService() {
 
 	// get the listing address
 	address := gs.NodeRef.NodeConfigInstance.Network.SelfAddress
 	splittedAddress := strings.Split(address, ":")
 	if len(splittedAddress) != 2 {
-		gs.NodeRef.NodeLogger.Errorf("GRPC address: %s", GRPCServerAddressError)
+		gs.NodeRef.NodeLogger.Errorf("GRPC address: %s", GrpcP2PServerAddressError)
 		return
 	}
 

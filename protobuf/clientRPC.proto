@@ -1,0 +1,12 @@
+syntax = "proto3";
+package protobuf;
+
+option go_package = "github.com/dlock_raft/protobuf";
+
+import "protobuf/clientModelsKV.proto";
+
+service RaftRPCOutsideClient {
+    rpc PutStateKVService (ClientPutStateKVRequest) returns (ClientPutStateKVResponse) {}
+    rpc GetStateKVService (ClientGetStateKVRequest) returns (ClientGetStateKVResponse) {}
+    rpc DelStateKVService (ClientDelStateKVRequest) returns (ClientDelStateKVResponse) {}
+}

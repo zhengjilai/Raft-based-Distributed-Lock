@@ -1,0 +1,51 @@
+syntax = "proto3";
+package protobuf;
+option go_package = "github.com/dlock_raft/protobuf";
+
+message ClientPutStateKVRequest {
+
+    // the key of KV
+    string key = 1;
+
+    // the value of KV
+    bytes content = 2;
+}
+
+message ClientPutStateKVResponse {
+
+    // boolean indicator, whether the LogEntry is created and committed
+    bool committed = 1;
+
+    // if the requested peer is not the current leader, return the leader ip:port
+    string currentLeader = 2;
+}
+
+message ClientDelStateKVRequest {
+
+    // the key of KV
+    string key = 1;
+}
+
+message ClientDelStateKVResponse {
+
+    // boolean indicator, whether the LogEntry is created and committed
+    bool committed = 1;
+
+    // if the requested peer is not the current leader, return the leader ip:port
+    string currentLeader = 2;
+}
+
+message ClientGetStateKVRequest {
+
+    // the key of KV
+    string key = 1;
+}
+
+message ClientGetStateKVResponse {
+
+    // boolean tag whether get state succeeded
+    bool success = 1;
+
+    // the value of KV
+    bytes value = 2;
+}

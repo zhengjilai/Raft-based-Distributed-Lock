@@ -80,6 +80,13 @@ func TestStateMapKVStoreOperations(t *testing.T) {
 		t.Error(fmt.Sprintf("Error happens when updating state from LogMemory: %s\n", err2))
 	}
 
+	fetchedStateKV, err3 := stateMapMemoryKVStore.QuerySpecificState("key1")
+	if err3 != nil {
+		t.Error(fmt.Sprintf("Error happens when fetching state from LogMemory: %s\n", err3))
+	} else {
+		t.Log(fmt.Println("The fetched value: ", string(fetchedStateKV.([]byte))))
+	}
+
 	t.Log(fmt.Println("The current state: \n", stateMapMemoryKVStore))
 }
 

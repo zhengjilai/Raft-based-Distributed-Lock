@@ -9,7 +9,10 @@ id:
     - 3
 network:
   # the node addresses, format ip:port
+  # address for peer to peer connection within cluster
   self_address: "0.0.0.0:14006"
+  # address for client to operate on dlock server
+  self_cli_address: "0.0.0.0:24006"
   peer_address:
     - "raft_peer1:14005"
     - "raft_peer3:14007"
@@ -25,6 +28,10 @@ parameters:
   max_log_units_recover: 200
   # the interval for log entries backing up
   log_back_up_interval: 1000
+  # the interval for polling
+  polling_interval: 15
+  # the timeout for state change
+  state_change_interval: 2000
 storage:
   # the path for log file
   log_path: "./var/"

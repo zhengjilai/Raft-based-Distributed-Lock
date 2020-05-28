@@ -21,6 +21,8 @@ type NodeConfig struct{
 	Network struct {
 		// self node address, ip:port
 		SelfAddress string `yaml:"self_address"`
+		// self cli address, ip:port
+		SelfCliAddress string `yaml:"self_cli_address"`
 		// peer node addresses, ip:port
 		PeerAddress []string `yaml:"peer_address"`
 	} `yaml:"network"`
@@ -41,6 +43,11 @@ type NodeConfig struct{
 
 		// the interval for log backup
 		LogBackupInterval uint32 `yaml:"log_back_up_interval"`
+
+		// the interval for polling
+		PollingInterval uint32 `yaml:"polling_interval"`
+		// the timeout for state change (wait to be committed)
+		StateChangeTimeout uint32 `yaml:"state_change_timeout"`
 
 	} `yaml:"parameters"`
 

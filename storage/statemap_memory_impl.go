@@ -69,7 +69,17 @@ func (sm *StateMapMemoryKVStore) UpdateStateFromLogEntry(entry *LogEntry) error 
 	}
 
 	// the update process
-	sm.StateMap[kvStore.Key] = kvStore.Value
+	// if value == nil, then it is a command for delete
+	// else, it is a put command
+	if kvStore.Value == nil {
+		_, ok := sm.StateMap[kvStore.Key]
+		// if there already exists a value for kvStore.Key, delete it
+		if ok {
+			delete(sm.StateMap, kvStore.Key)
+		}
+	} else {
+		sm.StateMap[kvStore.Key] = kvStore.Value
+	}
 	sm.prevIndex = entry.Entry.Index
 	sm.prevTerm = entry.Entry.Term
 

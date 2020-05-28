@@ -32,8 +32,10 @@ type NodeContext struct {
 	// the node state
 	NodeState int
 	
-	// the current leader
-	CurrentLeaderId uint32
+	// the hop id for current leader
+	// only used for client to find the current leader
+	// client may need multiple hops to find the leader
+	HopToCurrentLeaderId uint32
 
 	// the channel for triggering the log committing process
 	CommitChan chan struct{}
@@ -53,22 +55,22 @@ type NodeContext struct {
 
 func NewNodeContext(currentTerm uint64, commitIndex uint64,
 	lastAppliedIndex uint64, lastBackupIndex uint64, nodeState int,
-	currentLeaderId uint32, commitChan chan struct{},
+	hopToCurrentLeaderId uint32, commitChan chan struct{},
 	appendEntryChan chan struct{}, stopChan chan struct{}, votedPeer uint32,
 	electionRestartTime time.Time, diskLogEntry *os.File) *NodeContext {
 	return &NodeContext{
-		CurrentTerm: currentTerm,
-		CommitIndex: commitIndex,
-		LastAppliedIndex: lastAppliedIndex,
-		LastBackupIndex: lastBackupIndex,
-		NodeState: nodeState,
-		CurrentLeaderId: currentLeaderId,
-		CommitChan: commitChan,
-		AppendEntryChan: appendEntryChan,
-		StopChan: stopChan,
-		VotedPeer: votedPeer,
-		ElectionRestartTime: electionRestartTime,
-		DiskLogEntry: diskLogEntry,
+		CurrentTerm:          currentTerm,
+		CommitIndex:          commitIndex,
+		LastAppliedIndex:     lastAppliedIndex,
+		LastBackupIndex:      lastBackupIndex,
+		NodeState:            nodeState,
+		HopToCurrentLeaderId: hopToCurrentLeaderId,
+		CommitChan:           commitChan,
+		AppendEntryChan:      appendEntryChan,
+		StopChan:             stopChan,
+		VotedPeer:            votedPeer,
+		ElectionRestartTime:  electionRestartTime,
+		DiskLogEntry:         diskLogEntry,
 	}
 }
 

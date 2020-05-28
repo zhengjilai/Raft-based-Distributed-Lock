@@ -25,14 +25,14 @@ type PeerNode struct {
 	MatchIndex uint64
 
 	// the gprc client instance, for network transport
-	GrpcClient *GrpcClientImpl
+	GrpcClient *GrpcP2PClientImpl
 	// reference to node object
 	NodeRef *Node
 
 }
 
 func NewPeerNode(peerId uint32, addressName string, peerState int, nextIndex uint64, matchIndex uint64,
-	grpcClient *GrpcClientImpl, node *Node) *PeerNode {
+	grpcClient *GrpcP2PClientImpl, node *Node) *PeerNode {
 	return &PeerNode{
 		PeerId: peerId,
 		AddressName: addressName,
@@ -60,7 +60,7 @@ func NewPeerNodeListFromConfig(node *Node) ([]*PeerNode, error) {
 	// make the feedback object
 	peerList := make([]*PeerNode, len(addressList))
 	for i := 0 ; i < len(addressList) ; i++ {
-		grpcClient := NewGrpcClient(addressList[i], node)
+		grpcClient := NewGrpcP2PClientImpl(addressList[i], node)
 		peerList[i] = NewPeerNode(idList[i], addressList[i], Unknown, 0, 0, grpcClient, node)
 	}
 	return peerList, nil
