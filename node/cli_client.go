@@ -2,6 +2,7 @@ package node
 // the gprc-based client, for client-server transport between client and node
 
 import (
+	"fmt"
 	pb "github.com/dlock_raft/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -14,18 +15,21 @@ type GrpcCliSrvClientImpl struct {
 	// the connect peer address, format ip:port
 	nodeAddress string
 	conn *grpc.ClientConn
-	// the NodeRef Object
-	NodeRef *Node
+	timeout uint32
 }
 
-func NewGrpcCliSrvClientImpl(address string, node *Node) *GrpcCliSrvClientImpl {
+func NewGrpcCliSrvClientImpl(address string, timeout uint32) *GrpcCliSrvClientImpl {
 
 	// construct the feedback object
 	grpcClient := new(GrpcCliSrvClientImpl)
 	grpcClient.nodeAddress = address
 	grpcClient.conn = nil
-	grpcClient.NodeRef = node
+	grpcClient.timeout = timeout
 	return grpcClient
+}
+
+func (gc *GrpcCliSrvClientImpl) SetTimeout(timeout uint32) {
+	gc.timeout = timeout
 }
 
 func (gc *GrpcCliSrvClientImpl) StartConnection() error {
@@ -47,10 +51,10 @@ func (gc *GrpcCliSrvClientImpl) GetConnectionState() connectivity.State {
 
 func (gc *GrpcCliSrvClientImpl) IsAvailable() bool {
 	if gc.conn != nil {
-		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
+		fmt.Printf("Current TCP state is %s.\n", gc.conn.GetState())
 		return gc.conn.GetState() == connectivity.Ready
 	}
-	gc.NodeRef.NodeLogger.Infof("P2P Connection with %s has not been initialized.", gc.nodeAddress)
+	fmt.Printf("P2P Connection with %s has not been initialized.\n", gc.nodeAddress)
 	return false
 }
 
@@ -79,7 +83,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcPutState(request *pb.ClientPutStateKVReq
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.", gc.nodeAddress)
+			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -89,14 +93,14 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcPutState(request *pb.ClientPutStateKVReq
 
 	// set append entry timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.StateChangeTimeout + 100) * time.Millisecond)
+		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.NodeRef.NodeLogger.Infof("Begin to send PutState %+v to %s.", request, gc.nodeAddress)
+	fmt.Printf("Begin to send PutState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientAppendEntry.PutStateKVService(ctx, request)
 	if err != nil {
-		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
+		fmt.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -111,7 +115,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcDelState(request *pb.ClientDelStateKVReq
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.", gc.nodeAddress)
+			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -121,14 +125,14 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcDelState(request *pb.ClientDelStateKVReq
 
 	// set append entry timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.StateChangeTimeout + 100) * time.Millisecond)
+		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.NodeRef.NodeLogger.Infof("Begin to send DelState %+v to %s.", request, gc.nodeAddress)
+	fmt.Printf("Begin to send DelState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientAppendEntry.DelStateKVService(ctx, request)
 	if err != nil {
-		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
+		fmt.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -143,7 +147,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcGetState(request *pb.ClientGetStateKVReq
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			gc.NodeRef.NodeLogger.Errorf("Reconnect TCP to %s fails.", gc.nodeAddress)
+			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -153,14 +157,14 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcGetState(request *pb.ClientGetStateKVReq
 
 	// set append entry timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(gc.NodeRef.NodeConfigInstance.Parameters.StateChangeTimeout + 100) * time.Millisecond)
+		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.NodeRef.NodeLogger.Infof("Begin to send GetState %+v to %s.", request, gc.nodeAddress)
+	fmt.Printf("Begin to send GetState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientAppendEntry.GetStateKVService(ctx, request)
 	if err != nil {
-		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
+		fmt.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 

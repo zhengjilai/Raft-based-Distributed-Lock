@@ -4,6 +4,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	pb "github.com/dlock_raft/protobuf"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
@@ -63,11 +64,11 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 
 		if hopToLeaderId == 0 {
 			// no potential leader, then select a random leader
-			response.CurrentLeader = utils.RandomObjectInStringList(gs.NodeRef.NodeConfigInstance.Network.PeerAddress)
+			response.CurrentLeader = utils.RandomObjectInStringList(gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress)
 		} else {
 			// have potential leader, then return its ip:port address
 			indexToLeaderIpPort := utils.IndexInUint32List(gs.NodeRef.NodeConfigInstance.Id.PeerId, hopToLeaderId)
-			response.CurrentLeader = gs.NodeRef.NodeConfigInstance.Network.PeerAddress[indexToLeaderIpPort]
+			response.CurrentLeader = gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress[indexToLeaderIpPort]
 		}
 		gs.NodeRef.mutex.Unlock()
 		return response, nil
@@ -99,8 +100,9 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 		}
 		gs.NodeRef.NodeLogger.Infof("Constructed LogEntry index %d term %d " +
 			"begin to wait for commitment by raft",
-			logEntry.Entry.Index, logEntry.Entry.Term, response)
-		// end of construction phrase
+			logEntry.Entry.Index, logEntry.Entry.Term)
+		// end of construction phrase, trigger append entry
+		gs.NodeRef.NodeContextInstance.AppendEntryChan <- struct{}{}
 		gs.NodeRef.mutex.Unlock()
 
 		// the ticker for check
@@ -113,6 +115,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 			select {
 			case <- ticker.C:
 				// routine check
+				fmt.Println("put state check")
 				gs.NodeRef.mutex.Lock()
 				// check the logMemory, whether the LogEntry has been committed by raft
 				if gs.NodeRef.NodeContextInstance.CommitIndex >= logEntry.Entry.Index {
@@ -133,11 +136,14 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 						return response, nil
 					}
 				}
+				// don't forget to unlock
+				gs.NodeRef.mutex.Unlock()
+
 			case <- timer.C:
 				// timeout
 				gs.NodeRef.NodeLogger.Errorf("Put/DelState Timeout for request %+v, " +
 					"constructed LogEntry with index %d, term %d", request, logEntry.Entry.Index, logEntry.Entry.Term)
-				return nil, CliSrvChangeStateTimeoutError
+				return response, CliSrvChangeStateTimeoutError
 			}
 		}
 	}

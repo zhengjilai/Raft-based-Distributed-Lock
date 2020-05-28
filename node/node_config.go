@@ -25,6 +25,8 @@ type NodeConfig struct{
 		SelfCliAddress string `yaml:"self_cli_address"`
 		// peer node addresses, ip:port
 		PeerAddress []string `yaml:"peer_address"`
+		// peer node cli-srv addresses, ip:port
+		PeerCliAddress []string `yaml:"peer_cli_address"`
 	} `yaml:"network"`
 
     Parameters struct {

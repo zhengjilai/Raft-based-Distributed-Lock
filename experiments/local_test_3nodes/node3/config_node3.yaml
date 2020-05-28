@@ -16,6 +16,9 @@ network:
   peer_address:
     - "raft_peer1:14005"
     - "raft_peer2:14006"
+  peer_cli_address:
+    - "raft_peer1:24005"
+    - "raft_peer2:24006"
 parameters:
   # the interval for leader to push heart beat package to followers, unit:ms
   heart_beat_interval: 50
@@ -31,7 +34,7 @@ parameters:
   # the interval for polling
   polling_interval: 15
   # the timeout for state change
-  state_change_interval: 2000
+  state_change_timeout: 2000
 storage:
   # the path for log file
   log_path: "./var/"

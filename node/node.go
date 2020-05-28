@@ -390,7 +390,7 @@ func (n *Node) BecomeLeader() {
 	// the timer, tick interval is determined in config.yaml
 	// for every interval, if no AppendEntries is sent, then send heartbeat (empty AppendEntries)
 	// every time AppendEntries is sent, reset the timer
-	ticker := time.NewTimer(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
+	timer := time.NewTimer(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 
 	// start a new go routine for hear beat
 	go func() {
@@ -400,13 +400,13 @@ func (n *Node) BecomeLeader() {
 
 			select {
 			// if tick time exceeds heartbeat interval
-			case <-ticker.C:
+			case <-timer.C:
 				n.NodeLogger.Infof("Sending AppendEntries to all peers is triggered by heartbeat, term %d",
 					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
-				ticker.Stop()
-				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
+				timer.Stop()
+				timer.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 
 			// or if semaphore for sending AppendEntries is triggered deliberately
 			case <-n.NodeContextInstance.AppendEntryChan:
@@ -414,8 +414,8 @@ func (n *Node) BecomeLeader() {
 					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
-				ticker.Stop()
-				ticker.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
+				timer.Stop()
+				timer.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 			}
 
 			fmt.Println("Leader Heat Beat.")
@@ -429,7 +429,7 @@ func (n *Node) BecomeLeader() {
 					n.mutex.Unlock()
 					n.SendAppendEntriesToPeers(nil)
 				} else {
-					ticker.Stop()
+					timer.Stop()
 					n.mutex.Unlock()
 					return
 				}
@@ -458,6 +458,8 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			continue
 		}
 		indexIntermediate := i
+		n.NodeLogger.Infof("Trigger a goroutine for AppendEntries to node %d at Term %d",
+			peer.PeerId, startCurrentTerm)
 		go func() {
 			n.mutex.Lock()
 			// get out of the module when finding that the node is not leader

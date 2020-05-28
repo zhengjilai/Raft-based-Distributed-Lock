@@ -10,7 +10,7 @@ services:
       # the config file for peer1
       - ./node1/config_node1.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
     ports:
-      - "14005:14005"
+      - "24005:24005"
 
   raft_peer2:
     container_name: peer2
@@ -21,7 +21,7 @@ services:
       # the config file for peer2
       - ./node2/config_node2.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
     ports:
-      - "14006:14006"
+      - "24006:24006"
 
   raft_peer3:
     container_name: peer3
@@ -32,4 +32,4 @@ services:
       # the config file for peer3
       - ./node3/config_node3.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
     ports:
-      - "14007:14007"
+      - "24007:24007"
