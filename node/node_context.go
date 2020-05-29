@@ -86,4 +86,16 @@ func NewStartNodeContext(config *NodeConfig) (*NodeContext, error) {
 		make(chan struct{}, 1), 0, time.Now(), fileData), nil
 }
 
+func (nc *NodeContext) TriggerAEChannel() {
+	if len(nc.AppendEntryChan) == 0 {
+		nc.AppendEntryChan <- struct{}{}
+	}
+}
+
+func (nc *NodeContext) TriggerCommitChannel()  {
+	if len(nc.CommitChan) == 0 {
+		nc.CommitChan <- struct{}{}
+	}
+}
+
 

@@ -15,10 +15,12 @@ var InMemoryStateMapIndexTermError = errors.New("dlock_raft.statemap_memory: " +
 	"the LogEntry index/term is not valid")
 var InMemoryStateMapContentError = errors.New("dlock_raft.statemap_memory: " +
 	"the LogEntry command content is not valid")
-var InMemoryStateMapFetchError = errors.New("dlock_raft.statemap_memory: " +
+var InMemoryStateMapKVFetchError = errors.New("dlock_raft.statemap_memory: " +
 	"the no value for the specific key in statemap")
 var InMemoryStateMapDLockOwnerMisMatchError = errors.New("dlock_raft.statemap_memory: " +
 	"owner mismatch for dlock update")
+var InMemoryStateMapDeleteNoKeyError = errors.New("dlock_raft.statemap_memory: " +
+	"no K-V for a specific key, but a deletion is requested")
 
 type StateMapMemoryKVStore struct {
 	StateMapMemory
@@ -76,6 +78,8 @@ func (sm *StateMapMemoryKVStore) UpdateStateFromLogEntry(entry *LogEntry) error 
 		// if there already exists a value for kvStore.Key, delete it
 		if ok {
 			delete(sm.StateMap, kvStore.Key)
+		} else {
+			return InMemoryStateMapDeleteNoKeyError
 		}
 	} else {
 		sm.StateMap[kvStore.Key] = kvStore.Value
@@ -91,7 +95,7 @@ func (sm *StateMapMemoryKVStore) QuerySpecificState(key string) (interface{}, er
 	// should test whether a specific key-value is stored in statemap
 	value, ok := sm.StateMap[key]
 	if !ok {
-		return nil, InMemoryStateMapFetchError
+		return nil, InMemoryStateMapKVFetchError
 	}
 	return value, nil
 
@@ -114,14 +118,13 @@ func (sm *StateMapMemoryKVStore) UpdateStateFromLogMemory(logMemory *LogMemory, 
 			return err
 		}
 		err = sm.UpdateStateFromLogEntry(logEntry)
-		if err != nil && err != InMemoryStateMapKeywordError {
+		if err != nil && err != InMemoryStateMapKeywordError && err != InMemoryStateMapDeleteNoKeyError {
 			return err
 		}
 		sequence += 1
 		if sequence > end {break}
 	}
 	return nil
-
 }
 
 
@@ -187,7 +190,7 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 
 	// query the current state
 	currentDlockState, err2 := sm.QuerySpecificState(dlockInfo.LockName)
-	if err2 != InMemoryStateMapFetchError && err2 != nil {
+	if err2 != InMemoryStateMapKVFetchError && err2 != nil {
 		return err2
 	}
 	// if dlock exists but current owner in LogEntry is not equal to the old owner, update Dlock should fail
@@ -228,7 +231,7 @@ func (sm *StateMapMemoryDLock) QuerySpecificState(key string) (interface{}, erro
 	// should test whether a specific key-value is stored in statemap
 	encodedDlockState, ok := sm.StateMap[key]
 	if !ok {
-		return nil, InMemoryStateMapFetchError
+		return nil, InMemoryStateMapKVFetchError
 	}
 
 	// unmarshal the []byte array in statemap
@@ -264,6 +267,7 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogMemory(logMemory *LogMemory, st
 		sequence += 1
 		if sequence > end {break}
 	}
+
 	return nil
 }
 

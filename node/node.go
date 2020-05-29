@@ -183,6 +183,8 @@ func (n* Node) InitRaftConsensusModule() {
 	}
 	go n.NodeServer.StartService()
 	go n.RunElectionDetectorModule()
+	go n.BackUpLogMemoryToDisk()
+	go n.CommitToStateMap()
 	go n.CliServer.StartService()
 }
 
@@ -548,7 +550,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
 							prevIndexRecord + 1, prevIndexRecord + entryLength)
 					} else {
-						n.NodeLogger.Infof("Peer %d append no entries.", response.NodeId)
+						n.NodeLogger.Infof("Peer %d append no entries (for heartbeat).", response.NodeId)
 					}
 
 					// update nextIndex
@@ -561,7 +563,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 
 					origCommitIndex := n.NodeContextInstance.CommitIndex
 					// find whether there is an LogEntry that has been logged in LogMemory by majority of peers
-					for k := n.NodeContextInstance.CommitIndex + 1; k < n.LogEntryInMemory.MaximumIndex(); k++ {
+					for k := origCommitIndex + 1; k <= n.LogEntryInMemory.MaximumIndex(); k++ {
 						// count itself first
 						matchedPeers := 1
 						// count the followers
@@ -580,10 +582,13 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 
 					// if some update to commitIndex happened, then start the commit goroutine
 					if n.NodeContextInstance.CommitIndex > origCommitIndex {
+						n.NodeLogger.Infof("Commitment is to be triggered by AppendEntries success in term %d, " +
+							"original commit index %d, to be committed index %d.",
+							startCurrentTerm, origCommitIndex, n.NodeContextInstance.CommitIndex)
 						// begin to update statemap
-						n.NodeContextInstance.CommitChan <- struct{}{}
+						n.NodeContextInstance.TriggerCommitChannel()
 						// tell other followers for commitIndex update
-						n.NodeContextInstance.AppendEntryChan <- struct{}{}
+						n.NodeContextInstance.TriggerAEChannel()
 					}
 
 				}
@@ -636,21 +641,23 @@ func (n *Node) CommitToStateMap() {
 						err := n.StateMapDLock.UpdateStateFromLogMemory(n.LogEntryInMemory,
 							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 						if err != nil {
-							n.NodeLogger.Errorf("Update DLock stateMap failed for entry from %d to %d, error: %s.",
+							n.NodeLogger.Errorf("Update local DLock stateMap failed for entry from %d to %d, error: %s.",
 								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
 						} else {
-							n.NodeLogger.Infof("Update DLock stateMap succeeded for entry from %d to %d.",
+							n.NodeLogger.Infof("Update local DLock stateMap succeeded for entry from %d to %d.",
 								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 						}
 						err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
 							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 						if err2 != nil {
-							n.NodeLogger.Errorf("Update KVStore stateMap fails for entry from %d to %d, error: %s.",
+							n.NodeLogger.Errorf("Update local KVStore stateMap fails for entry from %d to %d, error: %s.",
 								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
 						} else {
-							n.NodeLogger.Infof("Update KVStore stateMap succeeded for entry from %d to %d.",
+							n.NodeLogger.Infof("Update local KVStore stateMap succeeded for entry from %d to %d.",
 								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 						}
+						// don't forget to refresh LastAppliedIndex
+						n.NodeContextInstance.LastAppliedIndex = n.NodeContextInstance.CommitIndex
 					}
 					n.mutex.Unlock()
 				}
@@ -676,14 +683,15 @@ func (n *Node) BackUpLogMemoryToDisk() {
 			if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastBackupIndex &&
 				n.NodeContextInstance.DiskLogEntry != nil {
 				// back up the LogEntries
-				writeBytes, err := n.LogEntryInMemory.StoreLogMemory(n.NodeContextInstance.LastAppliedIndex + 1,
+				writeBytes, err := n.LogEntryInMemory.StoreLogMemory(n.NodeContextInstance.LastBackupIndex + 1,
 					n.NodeContextInstance.CommitIndex, n.NodeContextInstance.DiskLogEntry)
 				if err != nil {
 					n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
-						n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
+						n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, err)
 				} else {
 					n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
-						n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
+						n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
+					n.NodeContextInstance.LastBackupIndex = n.NodeContextInstance.CommitIndex
 				}
 			}
 			n.mutex.Unlock()

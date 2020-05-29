@@ -17,8 +17,8 @@ network:
     - "raft_peer1:14005"
     - "raft_peer3:14007"
   peer_cli_address:
-    - "raft_peer1:24005"
-    - "raft_peer3:24007"
+    - "0.0.0.0:24005"
+    - "0.0.0.0:24007"
 parameters:
   # the interval for leader to push heart beat package to followers, unit:ms
   heart_beat_interval: 50

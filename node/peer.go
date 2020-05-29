@@ -15,8 +15,6 @@ type PeerNode struct {
 	PeerId uint32
 	// the peer address name, format ip:port
 	AddressName string
-	// the state of the peer
-	PeerState int
 	// nextIndex is used for leader to find the next index to append for follower
 	// first set equal to the last commit index, then decrement continuously to find the last common entry
 	NextIndex uint64
@@ -31,12 +29,11 @@ type PeerNode struct {
 
 }
 
-func NewPeerNode(peerId uint32, addressName string, peerState int, nextIndex uint64, matchIndex uint64,
+func NewPeerNode(peerId uint32, addressName string, nextIndex uint64, matchIndex uint64,
 	grpcClient *GrpcP2PClientImpl, node *Node) *PeerNode {
 	return &PeerNode{
 		PeerId: peerId,
 		AddressName: addressName,
-		PeerState: peerState,
 		NextIndex: nextIndex,
 		MatchIndex: matchIndex,
 		GrpcClient: grpcClient,
@@ -61,7 +58,7 @@ func NewPeerNodeListFromConfig(node *Node) ([]*PeerNode, error) {
 	peerList := make([]*PeerNode, len(addressList))
 	for i := 0 ; i < len(addressList) ; i++ {
 		grpcClient := NewGrpcP2PClientImpl(addressList[i], node)
-		peerList[i] = NewPeerNode(idList[i], addressList[i], Unknown, 0, 0, grpcClient, node)
+		peerList[i] = NewPeerNode(idList[i], addressList[i], 0, 0, grpcClient, node)
 	}
 	return peerList, nil
 }

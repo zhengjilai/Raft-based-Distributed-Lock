@@ -152,11 +152,11 @@ func (lm *LogMemory) LogReload(reader io.Reader) (int, error) {
 	var currentReadBytes int
 	var err error
 	// read LogEntry DLock from file
-	recoverLogEntry := new(LogEntry)
 	totalReadBytes := 0
 
 	for true {
 		// try to read an Entry
+		recoverLogEntry := new(LogEntry)
 		currentReadBytes, err = recoverLogEntry.LogReload(reader)
 
 		// if EOF, then the recovering process is over

@@ -4,7 +4,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	pb "github.com/dlock_raft/protobuf"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
@@ -21,8 +20,12 @@ var CliSrvQueryStateInternalError = errors.New("dlock_raft.cli_server: " +
 	"something wrong happens inside the server when querying state")
 var CliSrvChangeStateTimeoutError = errors.New("dlock_raft.cli_server: " +
 	"timeout for the dlock cli-server")
-var CliSrvDeadError = errors.New("dlock_raft.gprc_server: " +
+var CliSrvDeadError = errors.New("dlock_raft.cli_server: " +
 	"the node state is Dead, should start it")
+var CliSrvDeleteEmptyKeyValueError = errors.New("dlock_raft.cli_server: " +
+	"delState requests an empty key for deletion")
+var CliSrvGetEmptyKeyValueError = errors.New("dlock_raft.cli_server: " +
+	"getState requests an empty key for getting value")
 
 type GRPCCliSrvServerImpl struct {
 
@@ -78,6 +81,16 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 		gs.NodeRef.NodeLogger.Infof("Node %d is the current leader, begin to process the state change",
 			gs.NodeRef.NodeConfigInstance.Id.SelfId)
 
+		// if operation is del state, first check whether a current state is existing
+		if request.Content == nil {
+			_, err := gs.NodeRef.StateMapKVStore.QuerySpecificState(request.Key)
+			if err == storage.InMemoryStateMapKVFetchError {
+				gs.NodeRef.NodeLogger.Errorf("DelState requests an empty key: %s.", request.Key)
+				gs.NodeRef.mutex.Unlock()
+				return response, CliSrvDeleteEmptyKeyValueError
+			}
+		}
+
 		// construct command, logEntry and insert it into logMemory
 		commandKV, err := storage.NewCommandKVStore(request.Key, request.Content)
 		if err != nil {
@@ -102,7 +115,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 			"begin to wait for commitment by raft",
 			logEntry.Entry.Index, logEntry.Entry.Term)
 		// end of construction phrase, trigger append entry
-		gs.NodeRef.NodeContextInstance.AppendEntryChan <- struct{}{}
+		gs.NodeRef.NodeContextInstance.TriggerAEChannel()
 		gs.NodeRef.mutex.Unlock()
 
 		// the ticker for check
@@ -115,7 +128,6 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 			select {
 			case <- ticker.C:
 				// routine check
-				fmt.Println("put state check")
 				gs.NodeRef.mutex.Lock()
 				// check the logMemory, whether the LogEntry has been committed by raft
 				if gs.NodeRef.NodeContextInstance.CommitIndex >= logEntry.Entry.Index {
@@ -185,7 +197,11 @@ func (gs *GRPCCliSrvServerImpl) GetStateKVService(ctx context.Context,
 	// query KV in state map
 	// mote that state in statemap has already been committed
 	stateForKey, err := gs.NodeRef.StateMapKVStore.QuerySpecificState(request.Key)
-	if err != nil {
+	if err == storage.InMemoryStateMapKVFetchError {
+		gs.NodeRef.NodeLogger.Errorf("GetState requests an empty key: %s.", request.Key)
+		gs.NodeRef.mutex.Unlock()
+		return nil, CliSrvGetEmptyKeyValueError
+	} else if err != nil {
 		gs.NodeRef.NodeLogger.Errorf("GetStateKV Error: %s.", err)
 		gs.NodeRef.mutex.Unlock()
 		return nil, CliSrvQueryStateInternalError

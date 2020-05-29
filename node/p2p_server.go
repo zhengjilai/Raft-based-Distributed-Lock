@@ -115,7 +115,7 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 				gs.NodeRef.NodeContextInstance.CommitIndex = utils.Uint64Min(request.CommitEntryIndex,
 					gs.NodeRef.LogEntryInMemory.MaximumIndex())
 				// trigger the commit goroutine
-				gs.NodeRef.NodeContextInstance.CommitChan <- struct{}{}
+				gs.NodeRef.NodeContextInstance.TriggerCommitChannel()
 				response.CommitEntryIndex = gs.NodeRef.NodeContextInstance.CommitIndex
 			}
 
