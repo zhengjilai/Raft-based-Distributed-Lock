@@ -1,11 +1,11 @@
+# start / stop the cluster, or clean all logs and local LogEntries
 start:
 	docker-compose -f docker-compose-local.yaml up
 stop:
 	docker-compose -f docker-compose-local.yaml down
 clean:
-	rm -f node1/var/*.log
-	rm -f node2/var/*.log
-	rm -f node3/var/*.log
-	rm -f node1/var/*.db
-	rm -f node2/var/*.db
-	rm -f node3/var/*.db
+	@NodeNames=`ls | grep "^node[0-9]*"` && \
+	for node in $$NodeNames; \
+	do \
+		rm -f $$node/var/*.log && rm -f $$node/var/*.db; \
+	done
