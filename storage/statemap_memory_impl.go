@@ -136,12 +136,14 @@ type StateMapMemoryDLock struct {
 type DlockState struct {
 	// current owner
 	Owner string `json:"owner"`
-	// LockId should be unique
-	LockId uint32 `json:"lock_id"`
+	// LockNonce should be unique, accumulating from 1
+	LockNonce uint32 `json:"lock_nonce"`
 	// LockName should also be unique, will be used as fastIndex
 	LockName string `json:"lock_name"`
 	// last modified timestamp
 	Timestamp int64 `json:"timestamp"`
+	// expire for this dlock
+	Expire int64 `json:"expire"`
 }
 
 // keyword should have prefix DLock
@@ -193,13 +195,12 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 	if err2 != InMemoryStateMapKVFetchError && err2 != nil {
 		return err2
 	}
-	// if dlock exists but current owner in LogEntry is not equal to the old owner, update Dlock should fail
+	// if dlock exists but current nonce in LogEntry is not old nonce+1, update Dlock should fail
 	if err2 == nil {
 		lockStatePrevious, ok := currentDlockState.(*DlockState)
 		if !ok {
 			return InMemoryStateMapContentError
-		}
-		if dlockInfo.OrigOwner != lockStatePrevious.Owner && dlockInfo.OrigOwner != "Unknown"{
+		} else if dlockInfo.LockNonce != lockStatePrevious.LockNonce + 1 {
 			return InMemoryStateMapDLockOwnerMisMatchError
 		}
 	}
@@ -208,9 +209,10 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 	// dlockState object object pending to be marshalled
 	lockState := new(DlockState)
 	lockState.LockName = dlockInfo.LockName
-	lockState.LockId = dlockInfo.LockId
+	lockState.LockNonce = dlockInfo.LockNonce
 	lockState.Owner = dlockInfo.NewOwner
 	lockState.Timestamp = dlockInfo.Timestamp
+	lockState.Expire = dlockInfo.Expire
 
 	// marshal the dlockState object
 	encodedLockState, err2 := json.Marshal(lockState)
