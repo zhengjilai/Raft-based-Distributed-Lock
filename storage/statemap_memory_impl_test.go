@@ -34,19 +34,20 @@ func CreateTestLogMemory(t *testing.T) *LogMemory {
 	}
 
 	// information for dlock
-	lockId := []uint32{1, 2, 1, 2, 1}
+	lockNonce := []uint32{1, 1, 2, 2, 3}
 	// LockName should be unique, will be used as fastIndex
 	lockName := []string{"DLock1", "DLock2", "DLock1", "DLock2", "DLock1"}
-	origOwner := []string{"", "", "peer1", "Unknown", "peer2"}
 	newOwner := []string{"peer1","peer1","peer2","peer4","peer9"}
 	now := time.Now().UnixNano()
+	expireBase := time.Duration(2).Nanoseconds()
 	timestamp := []int64 {now, now + 1, now + 2, now + 3, now + 4}
+	expire := []int64 {expireBase, expireBase+1, expireBase+2, expireBase+3, expireBase+4}
 	indexesDLock := []uint64{6,7,8,9,10}
 	termsDLock := []uint64{6,6,6,7,7}
 
 	// insert the DLock commands into LogMemory
-	for i := 0; i < len(lockId); i++ {
-		command, err1 := NewCommandDLock(lockId[i], lockName[i], origOwner[i], newOwner[i], timestamp[i])
+	for i := 0; i < len(lockNonce); i++ {
+		command, err1 := NewCommandDLock(lockNonce[i], lockName[i], newOwner[i], timestamp[i], expire[i])
 		if err1 != nil {
 			t.Error(fmt.Sprintf("Error happens when creating a DLock Command: %s\n", err1))
 		}

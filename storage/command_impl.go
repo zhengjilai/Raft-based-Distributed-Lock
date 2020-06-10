@@ -106,18 +106,18 @@ type LockInfo struct {
 	// LockName should also be unique, will be used as fastIndex
 	LockName string `json:"lock_name"`
 	NewOwner string `json:"new_owner"`
-	// the creating time stamp
+	// the creating time stamp, unit: ns
 	Timestamp int64 `json:"timestamp"`
-	// expire time for this lock, unit: ms
+	// expire time for this lock, unit: ns
 	Expire int64 `json:"expire"`
 }
 
-func NewCommandDLock(lockId uint32, lockName string,
+func NewCommandDLock(lockNonce uint32, lockName string,
 	newOwner string, timestamp int64, expire int64) (*CommandDLock, error) {
 	
 	// dlock object object pending to be marshalled
 	lockInfo := new(LockInfo)
-	lockInfo.LockNonce = lockId
+	lockInfo.LockNonce = lockNonce
 	lockInfo.LockName = lockName
 	lockInfo.NewOwner = newOwner
 	lockInfo.Timestamp = timestamp

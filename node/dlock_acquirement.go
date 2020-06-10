@@ -2,6 +2,7 @@ package node
 
 import (
 	"errors"
+	"github.com/dlock_raft/storage"
 )
 
 var VolatileAcquirementInvalidSequenceError = errors.New("dlock_raft.acquirement: " +
@@ -38,10 +39,16 @@ func NewDlockVolatileAcquirement(lockName string) *DlockVolatileAcquirement {
 }
 
 // update an requirement with current timestamp, in case it expires
-// time stamp format ms: obtained by time.Now().UnixNano() / 1000000
-func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, timestamp uint64) error {
+// time stamp format ns: obtained by time.Now().UnixNano()
+func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, timestamp int64) error {
 
-	// if the sequence is not valid
+	// first refresh pending list
+	err := dva.AbandonExpiredAcquirement(timestamp)
+	if err != nil {
+		return err
+	}
+
+	// if the sequence is not valid, throw error
 	if acquireSeq > dva.lastAssignedAcquirement || acquireSeq <= dva.lastProcessedAcquirement {
 		return VolatileAcquirementInvalidSequenceError
 	}
@@ -50,12 +57,8 @@ func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, times
 		return VolatileAcquirementInfoFetchingError
 	}
 
-	// if the lock acquirement has already expired
+	// if the lock acquirement has already expired, you cannot refresh it
 	if fetchedAcquirement.LastRefreshedTimestamp + fetchedAcquirement.Expire < timestamp {
-		// update processed sequence record if possible
-		if acquireSeq == dva.lastProcessedAcquirement + 1{
-			dva.lastProcessedAcquirement += 1
-		}
 		return VolatileAcquirementExpireError
 	} else {
 		// actual update process
@@ -65,14 +68,99 @@ func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, times
 }
 
 // remove the acquirement expired, starting from sequence (dva.lastProcessedAcquirement + 1)
-func (dva *DlockVolatileAcquirement) AbandonAllExpired() error {
+func (dva *DlockVolatileAcquirement) AbandonExpiredAcquirement(timestamp int64) error {
+
+	// find all acquirement expired
+	for i := dva.lastProcessedAcquirement + 1; i <= dva.lastAssignedAcquirement; i++{
+		fetchedAcquirement, ok := dva.PendingAcquirement[i]
+		if !ok {
+			return VolatileAcquirementInfoFetchingError
+		}
+		if fetchedAcquirement.LastRefreshedTimestamp + fetchedAcquirement.Expire < timestamp {
+			// delete expired acquirement
+			delete(dva.PendingAcquirement, i)
+			dva.lastProcessedAcquirement = i
+		} else {
+			// return when finding the first not expired acquirement
+			return nil
+		}
+	}
 	return nil
 }
 
-
 // insert a new acquirement
-func (dva *DlockVolatileAcquirement) InsertNewAcquirement(timestamp uint64,
-	expire uint64, acquirer uint64) {
+func (dva *DlockVolatileAcquirement) InsertNewAcquirement(command *storage.CommandDLock,
+	timestamp int64, expire int64) (uint32, error) {
+
+	// first refresh pending list
+	err := dva.AbandonExpiredAcquirement(timestamp)
+	if err != nil {
+		return 0, err
+	}
+
+	// get dlock info from command
+	dlockInfo, err := command.GetAsDLockInfo()
+	if err != nil {
+		return 0, err
+	}
+	// get current acquirer of dlock
+	acquirer := dlockInfo.NewOwner
+
+	// search the current pending list, figuring out whether the acquirer has already acquired this dlock
+	for i := dva.lastProcessedAcquirement + 1; i <= dva.lastAssignedAcquirement; i++{
+		fetchedAcquirement, ok := dva.PendingAcquirement[i]
+		if !ok {
+			return 0, VolatileAcquirementInfoFetchingError
+		}
+		// return the waiting acquirement in the pending list
+		if fetchedAcquirement.Acquirer == acquirer {
+			return i, nil
+		}
+	}
+
+	// if we do not find an acquirement with the same acquirer, construct a pending acquirement
+	dlockAcqInfo := &DlockAcquirementInfo{
+		Acquirer:               acquirer,
+		LastRefreshedTimestamp: timestamp,
+		Expire:                 expire,
+		Command:                command,
+	}
+	dva.lastAssignedAcquirement += 1
+	dva.PendingAcquirement[dva.lastAssignedAcquirement] = dlockAcqInfo
+	return dva.lastAssignedAcquirement, nil
+
+}
+
+func (dva *DlockVolatileAcquirement) PopFirstValidAcquirement(timestamp int64) (*storage.CommandDLock, error) {
+
+	// first refresh pending list
+	err := dva.AbandonExpiredAcquirement(timestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	if dva.lastAssignedAcquirement == dva.lastProcessedAcquirement {
+		// if no valid pending acquirement is available, return nothing
+		return nil, nil
+	} else {
+		// has one valid pending acquirement, return it and refresh lastProcessedAcquirement
+		dva.lastProcessedAcquirement += 1
+		fetchedAcquirement, ok := dva.PendingAcquirement[dva.lastProcessedAcquirement]
+		if !ok {
+			return nil, VolatileAcquirementInfoFetchingError
+		}
+		// refresh the timestamp in DLockCommand as ts in arg, ---often---> time.Now().NanoSeconds()
+		fetchedDlockInfo, err := fetchedAcquirement.Command.GetAsDLockInfo()
+		if err != nil {
+			return nil, err
+		}
+		fetchedDlockInfo.Timestamp = timestamp
+		err = fetchedAcquirement.Command.SetAsDLockInfo(fetchedDlockInfo)
+		if err != nil {
+			return nil, err
+		}
+		return fetchedAcquirement.Command, nil
+	}
 
 }
 
@@ -84,20 +172,23 @@ type DlockAcquirementInfo struct {
 
 	// the timestamp when acquirement sender last refreshed the acquirement
 	// those who do not refresh the acquirement will finally expire
-	LastRefreshedTimestamp uint64
+	LastRefreshedTimestamp int64
 
 	// the expire for this dlockAcquirement, currently determined by server and cannot revise
 	// used to judge whether this acquirement has expired
-	Expire uint64
+	Expire int64
 
+	// the command recorded for this acquirement
+	Command *storage.CommandDLock
 }
 
-func NewDlockAcquirementInfo(acquirer string, lastRefreshedTimestamp uint64,
-	expire uint64) *DlockAcquirementInfo {
+func NewDlockAcquirementInfo(acquirer string, lastRefreshedTimestamp int64,
+	expire int64, command *storage.CommandDLock) *DlockAcquirementInfo {
 	return &DlockAcquirementInfo{
 		Acquirer: acquirer,
 		LastRefreshedTimestamp: lastRefreshedTimestamp,
 		Expire: expire,
+		Command: command,
 	}
 }
 

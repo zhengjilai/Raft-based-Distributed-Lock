@@ -17,8 +17,8 @@ var InMemoryStateMapContentError = errors.New("dlock_raft.statemap_memory: " +
 	"the LogEntry command content is not valid")
 var InMemoryStateMapKVFetchError = errors.New("dlock_raft.statemap_memory: " +
 	"the no value for the specific key in statemap")
-var InMemoryStateMapDLockOwnerMisMatchError = errors.New("dlock_raft.statemap_memory: " +
-	"owner mismatch for dlock update")
+var InMemoryStateMapDLockNonceMisMatchError = errors.New("dlock_raft.statemap_memory: " +
+	"nonce mismatch for dlock update")
 var InMemoryStateMapDeleteNoKeyError = errors.New("dlock_raft.statemap_memory: " +
 	"no K-V for a specific key, but a deletion is requested")
 
@@ -146,6 +146,16 @@ type DlockState struct {
 	Expire int64 `json:"expire"`
 }
 
+func NewDlockState(owner string, lockNonce uint32, lockName string, timestamp int64, expire int64) *DlockState {
+	return &DlockState{
+		Owner: owner,
+		LockNonce: lockNonce,
+		LockName: lockName,
+		Timestamp: timestamp,
+		Expire: expire,
+	}
+}
+
 // keyword should have prefix DLock
 func NewStateMapMemoryDLock(keyword string) (*StateMapMemoryDLock, error) {
 
@@ -201,18 +211,18 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 		if !ok {
 			return InMemoryStateMapContentError
 		} else if dlockInfo.LockNonce != lockStatePrevious.LockNonce + 1 {
-			return InMemoryStateMapDLockOwnerMisMatchError
+			return InMemoryStateMapDLockNonceMisMatchError
 		}
 	}
 
 	// construct a new Dlock state
 	// dlockState object object pending to be marshalled
-	lockState := new(DlockState)
-	lockState.LockName = dlockInfo.LockName
-	lockState.LockNonce = dlockInfo.LockNonce
-	lockState.Owner = dlockInfo.NewOwner
-	lockState.Timestamp = dlockInfo.Timestamp
-	lockState.Expire = dlockInfo.Expire
+	lockState := NewDlockState(
+		dlockInfo.NewOwner,
+		dlockInfo.LockNonce,
+		dlockInfo.LockName,
+		dlockInfo.Timestamp,
+		dlockInfo.Expire)
 
 	// marshal the dlockState object
 	encodedLockState, err2 := json.Marshal(lockState)

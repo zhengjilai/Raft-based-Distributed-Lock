@@ -47,15 +47,15 @@ func TestKVStore(t *testing.T){
 func TestDLock(t *testing.T){
 	
 	// Dlock info pending to be tested
-	testLockId := uint32(9225)
+	testLockNonce := uint32(9225)
 	testLockName := "Lock_Calligrapher"
-	testOrigOwner := "Golang"
 	testNewOwner := "Java"
 	testTimestamp := time.Now().UnixNano()
+	testExpire := time.Duration(1).Nanoseconds()
 
 	// new command
-	testDLockCommand, err1 := NewCommandDLock(testLockId, testLockName,
-		 testOrigOwner, testNewOwner, testTimestamp)
+	testDLockCommand, err1 := NewCommandDLock(testLockNonce, testLockName,
+		testNewOwner, testTimestamp, testExpire)
 	if err1 != nil {
 		t.Error(fmt.Sprintf("Error happens when creating a new DLock command: %s", err1))
 	}

@@ -62,13 +62,13 @@ func TestLogEntryWriteRead(t *testing.T) {
 
 
 	// Test Log Entry 2: DLock
-	testLockId := uint32(9226)
+	testLockNonce := uint32(9226)
 	testLockName := "Lock_Calligrapher"
-	testOrigOwner := "Golang"
 	testNewOwner := "Java"
 	testTimestamp := time.Now().UnixNano()
-	testCommandDLock, err3 := NewCommandDLock(testLockId, testLockName,
-		testOrigOwner, testNewOwner, testTimestamp)
+	testExpire := time.Duration(1).Nanoseconds()
+	testCommandDLock, err3 := NewCommandDLock(testLockNonce, testLockName, testNewOwner,
+		testTimestamp, testExpire)
 	if err3 != nil {
 		t.Error(fmt.Sprintf("Error happens when creating a DLock command: %s\n", err2))
 	}
