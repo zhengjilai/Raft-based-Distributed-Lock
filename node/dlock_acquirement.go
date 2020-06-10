@@ -24,18 +24,23 @@ type DlockVolatileAcquirement struct {
 	// last assigned acquirement sequence
 	// used when new acquirement is received
 	lastAssignedAcquirement uint32
+
+	// last appended nonce (to LogMemory)
+	// this field is used to prevent multiple LogEntry appended with the same Nonce
+	LastAppendedNonce uint32
 	
-	// map: acquire seq -> actual Dlock acquirements
+	// map: acquire seq -> actual Dlock acquirement
 	PendingAcquirement map[uint32]*DlockAcquirementInfo
 	
 }
 
-func NewDlockVolatileAcquirement(lockName string) *DlockVolatileAcquirement {
+func NewDlockVolatileAcquirement(lockName string, lastAppendedNonce uint32) *DlockVolatileAcquirement {
 	return &DlockVolatileAcquirement{
-		LockName: lockName,
-		lastAssignedAcquirement: 0,
+		LockName:                 lockName,
+		lastAssignedAcquirement:  0,
 		lastProcessedAcquirement: 0,
-		PendingAcquirement: make(map[uint32]*DlockAcquirementInfo)}
+		LastAppendedNonce:        lastAppendedNonce,
+		PendingAcquirement:       make(map[uint32]*DlockAcquirementInfo)}
 }
 
 // update an requirement with current timestamp, in case it expires
@@ -155,13 +160,13 @@ func (dva *DlockVolatileAcquirement) PopFirstValidAcquirement(timestamp int64) (
 			return nil, err
 		}
 		fetchedDlockInfo.Timestamp = timestamp
+		fetchedDlockInfo.LockNonce = dva.LastAppendedNonce + 1
 		err = fetchedAcquirement.Command.SetAsDLockInfo(fetchedDlockInfo)
 		if err != nil {
 			return nil, err
 		}
 		return fetchedAcquirement.Command, nil
 	}
-
 }
 
 // the information for an lock acquirement

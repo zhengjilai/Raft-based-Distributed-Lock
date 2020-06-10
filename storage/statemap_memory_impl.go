@@ -16,7 +16,9 @@ var InMemoryStateMapIndexTermError = errors.New("dlock_raft.statemap_memory: " +
 var InMemoryStateMapContentError = errors.New("dlock_raft.statemap_memory: " +
 	"the LogEntry command content is not valid")
 var InMemoryStateMapKVFetchError = errors.New("dlock_raft.statemap_memory: " +
-	"the no value for the specific key in statemap")
+	"there is no value for the specific key in statemap")
+var InMemoryStateMapDLockFetchError = errors.New("dlock_raft.statemap_memory: " +
+	"there is no dlock for the specific dlockname in statemap")
 var InMemoryStateMapDLockNonceMisMatchError = errors.New("dlock_raft.statemap_memory: " +
 	"nonce mismatch for dlock update")
 var InMemoryStateMapDeleteNoKeyError = errors.New("dlock_raft.statemap_memory: " +
@@ -245,7 +247,7 @@ func (sm *StateMapMemoryDLock) QuerySpecificState(key string) (interface{}, erro
 	// should test whether a specific key-value is stored in statemap
 	encodedDlockState, ok := sm.StateMap[key]
 	if !ok {
-		return nil, InMemoryStateMapKVFetchError
+		return nil, InMemoryStateMapDLockFetchError
 	}
 
 	// unmarshal the []byte array in statemap

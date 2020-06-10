@@ -35,6 +35,8 @@ parameters:
   polling_interval: 15
   # the timeout for state change
   state_change_timeout: 2000
+  # the default expire for acquirement in pending list
+  acquirement_expire: 3000
 storage:
   # the path for log file
   log_path: "./var/"

@@ -30,6 +30,7 @@ type NodeConfig struct{
 	} `yaml:"network"`
 
     Parameters struct {
+
 		// the interval for leader to push heart beat package to followers, unit:ms
 		HeartBeatInterval uint32 `yaml:"heart_beat_interval"`
 
@@ -50,6 +51,9 @@ type NodeConfig struct{
 		PollingInterval uint32 `yaml:"polling_interval"`
 		// the timeout for state change (wait to be committed)
 		StateChangeTimeout uint32 `yaml:"state_change_timeout"`
+
+		// the default expire for acquirement in pending list
+		AcquirementExpire uint32 `yaml:"acquirement_expire"`
 
 	} `yaml:"parameters"`
 
