@@ -44,6 +44,7 @@ type NodeContext struct {
 	// the stop channel for main goroutine to exit
 	StopChan chan struct{}
 
+
 	// the voted peer id
 	VotedPeer uint32
 	// the election start time

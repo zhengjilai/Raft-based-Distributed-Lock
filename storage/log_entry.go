@@ -11,7 +11,7 @@ import (
 var LogEntryContentDecodeError = errors.New("dlock_raft.log_entry: " +
 	"command content decode fails, the read []byte is invalid")
 var LogEntryFastIndexError = errors.New("dlock_raft.log_entry: " +
-	"command content decode fails, the read []byte is invalid")
+	"command content get fast index fails")
 
 // A log Entry type for storing, encoding and decoding entries
 type LogEntry struct {

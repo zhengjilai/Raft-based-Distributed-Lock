@@ -21,6 +21,8 @@ var InMemoryStateMapDLockNonceMisMatchError = errors.New("dlock_raft.statemap_me
 	"nonce mismatch for dlock update")
 var InMemoryStateMapDeleteNoKeyError = errors.New("dlock_raft.statemap_memory: " +
 	"no K-V for a specific key, but a deletion is requested")
+var InMemoryStateMapDLockInfoDecodeError = errors.New("dlock_raft.statemap_memory: " +
+	"error happens when decoding DLockInfo fetched from DLockStatemap")
 
 type StateMapMemoryKVStore struct {
 	StateMapMemory

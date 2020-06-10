@@ -624,46 +624,50 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 	}
 }
 
-// update stateMap when receiving a signal from channel
+// update stateMap when receiving a signal from CommitChan or NewLeaderCommitChan
 // this function should be running throughout the lifecycle, in a goroutine
 func (n *Node) CommitToStateMap() {
 
 	for {
-
 		select {
 			// if semaphore for updating stateMap is triggered
 			case _, ok := <-n.NodeContextInstance.CommitChan:
 				if ok == true {
 					n.mutex.Lock()
-					// if new entries should be applied to stateMaps
-					if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastAppliedIndex{
-						// update the two stateMaps in memory
-						err := n.StateMapDLock.UpdateStateFromLogMemory(n.LogEntryInMemory,
-							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
-						if err != nil {
-							n.NodeLogger.Errorf("Update local DLock stateMap failed for entry from %d to %d, error: %s.",
-								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
-						} else {
-							n.NodeLogger.Infof("Update local DLock stateMap succeeded for entry from %d to %d.",
-								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
-						}
-						err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
-							n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
-						if err2 != nil {
-							n.NodeLogger.Errorf("Update local KVStore stateMap fails for entry from %d to %d, error: %s.",
-								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
-						} else {
-							n.NodeLogger.Infof("Update local KVStore stateMap succeeded for entry from %d to %d.",
-								n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
-						}
-						// don't forget to refresh LastAppliedIndex
-						n.NodeContextInstance.LastAppliedIndex = n.NodeContextInstance.CommitIndex
-					}
+					n.commitProcedure()
 					n.mutex.Unlock()
 				}
 		}
 	}
 }
+
+func (n *Node) commitProcedure() {
+	// if new entries should be applied to stateMaps
+	if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastAppliedIndex{
+		// update the two stateMaps in memory
+		err := n.StateMapDLock.UpdateStateFromLogMemory(n.LogEntryInMemory,
+			n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+		if err != nil {
+			n.NodeLogger.Errorf("Update local DLock stateMap failed for entry from %d to %d, error: %s.",
+				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
+		} else {
+			n.NodeLogger.Infof("Update local DLock stateMap succeeded for entry from %d to %d.",
+				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+		}
+		err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
+			n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+		if err2 != nil {
+			n.NodeLogger.Errorf("Update local KVStore stateMap fails for entry from %d to %d, error: %s.",
+				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
+		} else {
+			n.NodeLogger.Infof("Update local KVStore stateMap succeeded for entry from %d to %d.",
+				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
+		}
+		// don't forget to refresh LastAppliedIndex
+		n.NodeContextInstance.LastAppliedIndex = n.NodeContextInstance.CommitIndex
+	}
+}
+
 
 // backup the LogMemory in disk
 // this function should be running throughout the lifecycle, in a goroutine
