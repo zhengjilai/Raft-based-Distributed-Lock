@@ -47,13 +47,13 @@ func NewDlockVolatileAcquirement(lockName string, lastAppendedNonce uint32) *Dlo
 // time stamp format ns: obtained by time.Now().UnixNano()
 func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, timestamp int64) error {
 
-	// first refresh pending list
+	// first refresh pending acquirement list
 	err := dva.AbandonExpiredAcquirement(timestamp)
 	if err != nil {
 		return err
 	}
 
-	// if the sequence is not valid, throw error
+	// if the sequence number is not valid, throw error
 	if acquireSeq > dva.lastAssignedAcquirement || acquireSeq <= dva.lastProcessedAcquirement {
 		return VolatileAcquirementInvalidSequenceError
 	}
@@ -66,7 +66,7 @@ func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, times
 	if fetchedAcquirement.LastRefreshedTimestamp + fetchedAcquirement.Expire < timestamp {
 		return VolatileAcquirementExpireError
 	} else {
-		// actual update process
+		// actual update process if lock acquirement is not expired
 		fetchedAcquirement.LastRefreshedTimestamp = timestamp
 		return nil
 	}

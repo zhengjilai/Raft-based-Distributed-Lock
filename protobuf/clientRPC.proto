@@ -4,9 +4,13 @@ package protobuf;
 option go_package = "github.com/dlock_raft/protobuf";
 
 import "protobuf/clientModelsKV.proto";
+import "protobuf/clientModelsDLock.proto";
 
 service RaftRPCOutsideClient {
     rpc PutStateKVService (ClientPutStateKVRequest) returns (ClientPutStateKVResponse) {}
     rpc GetStateKVService (ClientGetStateKVRequest) returns (ClientGetStateKVResponse) {}
     rpc DelStateKVService (ClientDelStateKVRequest) returns (ClientDelStateKVResponse) {}
+    rpc AcquireDLockService (ClientAcquireDLockRequest) returns (ClientAcquireDLockResponse) {}
+    rpc QueryDLockService (ClientQueryDLockRequest) returns (ClientQueryDLockResponse) {}
+    rpc ReleaseDLockService (ClientReleaseDLockRequest) returns (ClientReleaseDLockResponse) {}
 }

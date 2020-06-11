@@ -1,0 +1,70 @@
+syntax = "proto3";
+package protobuf;
+option go_package = "github.com/dlock_raft/protobuf";
+
+message ClientAcquireDLockRequest {
+
+    // the name of lockName
+    string lockName = 1;
+
+    // the expire of dlock, format: ns
+    int64 expire = 2;
+
+    // the sequence of acquirement
+    // if this field is not 0, then refresh acquirement will be triggered
+    uint32 sequence = 3;
+}
+
+message ClientAcquireDLockResponse {
+
+    // boolean indicator, whether the dlock acquirement is pending or not
+    // once pending = false, client begin to query the dlock state and find whether its dlock is functioning
+    bool pending = 1;
+
+    // sequence number, only return if pending = true (dlock is occupied)
+    uint32 sequence = 2;
+
+    // if the requested peer is not the current leader, return the leader ip:port
+    string currentLeader = 3;
+}
+
+message ClientQueryDLockRequest {
+
+    // the name of lockName
+    string lockName = 1;
+
+}
+
+message ClientQueryDLockResponse {
+
+    // current owner, "" for nobody (not acquired yet)
+    string owner = 1;
+
+    // dlock nonce
+    uint32 nonce = 2;
+
+    // the timestamp when dlock last refreshed, format: ns
+    int64 timestamp = 3;
+
+    // the current dlock expire, format: ns
+    int64 expire = 4;
+
+    // the pending acquirement number
+    // return a non-negative number only when client ask the leader
+    int32 pendingNum = 5;
+}
+
+message ClientReleaseDLockRequest {
+
+    // the name of dlock
+    string lockName  = 1;
+
+}
+
+message ClientReleaseDLockResponse {
+
+    // released is true if
+    // 1. the specific dlock has already been released
+    // 2. a release LogEntry is appended successfully (but may not be committed yet)
+    bool released = 1;
+}

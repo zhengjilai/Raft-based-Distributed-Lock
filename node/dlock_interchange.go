@@ -44,6 +44,18 @@ func (di *DlockInterchange) InitFromDLockStateMap(timestamp int64) error {
 
 	// make sure the current MemoryStateMap is up-to-date
 	di.NodeRef.commitProcedure()
+	err := di.releaseExpiredDLocks(timestamp)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// release all expired dlocks in statemap, acording to the current timestamp
+// new LogEntries for releasing dlock (owner = "") will be appended to LogMemory
+// should enter with mutex
+func (di *DlockInterchange) releaseExpiredDLocks(timestamp int64) error {
 
 	statemap := di.NodeRef.StateMapDLock
 	currentTerm := di.NodeRef.NodeContextInstance.CurrentTerm
@@ -61,14 +73,23 @@ func (di *DlockInterchange) InitFromDLockStateMap(timestamp int64) error {
 		if !ok {
 			return storage.InMemoryStateMapDLockInfoDecodeError
 		}
-		di.PendingAcquire[lockStateDecoded.LockName] = NewDlockVolatileAcquirement(
-			lockStateDecoded.LockName, lockStateDecoded.LockNonce)
+
+		// construct a pending acquire if not existing, often used for interchange init
+		pendingAcq , ok2 := di.PendingAcquire[lockStateDecoded.LockName]
+		if !ok2 {
+			di.PendingAcquire[lockStateDecoded.LockName] = NewDlockVolatileAcquirement(
+				lockStateDecoded.LockName, lockStateDecoded.LockNonce)
+		}
+		err = pendingAcq.AbandonExpiredAcquirement(timestamp)
+		if err != nil {
+			return err
+		}
 
 		// if the lock is expired, but still owned by someone
 		if lockStateDecoded.Owner != "" &&
 			(lockStateDecoded.Timestamp + lockStateDecoded.Expire < timestamp) {
 			// construct a new LogEntry, in order to release the dlock
-			currentLogEntry, err := di.constructLogEntryToReleaseDlock(lockStateDecoded.LockNonce + 1,
+			currentLogEntry, err := di.constructLogEntryByItems(lockStateDecoded.LockNonce + 1,
 				lockStateDecoded.LockName, "", timestamp, 0,
 				currentTerm, di.NodeRef.LogEntryInMemory.MaximumIndex() + appendNumber + 1)
 			if err != nil {
@@ -100,7 +121,7 @@ func (di *DlockInterchange) InitFromDLockStateMap(timestamp int64) error {
 
 // construct a LogEntry in order to release an expired dlock
 // should enter with mutex
-func (di *DlockInterchange) constructLogEntryToReleaseDlock(lockNonce uint32, lockName string, newOwner string,
+func (di *DlockInterchange) constructLogEntryByItems(lockNonce uint32, lockName string, newOwner string,
 	timestamp int64, expire int64, currentTerm uint64, entryIndex uint64) (*storage.LogEntry, error) {
 
 	// construct the target logEntry
@@ -116,14 +137,16 @@ func (di *DlockInterchange) constructLogEntryToReleaseDlock(lockNonce uint32, lo
 }
 
 // refresh a specific dlock
+// will pop an acquirement if necessary
 func (di *DlockInterchange) RefreshDLockByPendingAcquirement(dlockName string, timestamp int64) error {
 
 	dlockAcq, ok := di.PendingAcquire[dlockName]
 	// do nothing if no such dlock exists
 	if !ok {
-		di.NodeRef.NodeLogger.Debugf("When refreshing Dlock %s, it does not exist.\n", dlockName)
+		di.NodeRef.NodeLogger.Debugf("When refreshing Dlock %s, it does not exist, thus do nothing\n", dlockName)
 		return nil
 	}
+
 	// here we make sure that at most one LogEntry can be in LogMemory but not committed
 	currentLockState, err := di.NodeRef.StateMapDLock.QuerySpecificState(dlockName)
 	if err != nil {
@@ -131,7 +154,7 @@ func (di *DlockInterchange) RefreshDLockByPendingAcquirement(dlockName string, t
 	}
 	if dlockAcq.LastAppendedNonce > currentLockState.(*storage.DlockState).LockNonce {
 		di.NodeRef.NodeLogger.Debugf("Stop refreshing a Dlock %s at nonce %d, " +
-			"as some LogEntry is appended but not committed.\n", dlockName, dlockAcq.LastAppendedNonce)
+			"as a LogEntry is appended but not committed.\n", dlockName, dlockAcq.LastAppendedNonce)
 		return nil
 	}
 
@@ -160,6 +183,7 @@ func (di *DlockInterchange) RefreshDLockByPendingAcquirement(dlockName string, t
 	}
 	// refresh LastAppendedNonce if LogMemory is refreshed with a logEntry
 	di.PendingAcquire[dlockName].LastAppendedNonce += 1
+	di.NodeRef.NodeContextInstance.TriggerAEChannel()
 	di.NodeRef.NodeLogger.Infof("Dlock %s with nonce %d is appended to LogMemory.\n",
 		dlockName, di.PendingAcquire[dlockName].LastAppendedNonce)
 	return nil
@@ -212,6 +236,7 @@ func (di *DlockInterchange) AcquireDLock(lockName string,
 			if err != nil {
 				return false, 0, err
 			}
+			di.NodeRef.NodeContextInstance.TriggerAEChannel()
 			return true, 0, nil
 		} else {
 			// if there is already a volatile acquirement, insert the acquirement
@@ -259,6 +284,7 @@ func (di *DlockInterchange) AcquireDLock(lockName string,
 		if err != nil {
 			return false, 0, err
 		}
+		di.NodeRef.NodeContextInstance.TriggerAEChannel()
 		return true, 0, nil
 	} else if pendingAcq.LastAppendedNonce > currentDLockStateDecoded.LockNonce ||
 		pendingAcq.lastProcessedAcquirement < pendingAcq.lastAssignedAcquirement {
@@ -276,5 +302,34 @@ func (di *DlockInterchange) AcquireDLock(lockName string,
 		lockName, currentDLockStateDecoded.LockNonce, pendingAcq.LastAppendedNonce,
 		pendingAcq.lastProcessedAcquirement, pendingAcq.lastAssignedAcquirement)
 	return false, 0, AcquireDLockUnexpectedError
+}
+
+// refresh a dlock acquirement specified by sequence number
+// should enter with mutex
+// note that sequence is returned by AcquireDlock, and expired acquirement can never be refreshed
+func (di *DlockInterchange) RefreshAcquirementBySequence(lockName string, sequence uint32, timestamp int64)(bool, error){
+
+	// make sure the current MemoryStateMap is up-to-date
+	di.NodeRef.commitProcedure()
+	// refresh acquirement before acquiring a dlock
+	err := di.RefreshDLockByPendingAcquirement(lockName, timestamp)
+	if err != nil {
+		return false, err
+	}
+
+	dlockAcq, ok := di.PendingAcquire[lockName]
+	// do nothing if no such dlock exists
+	if !ok {
+		di.NodeRef.NodeLogger.Debugf("When refreshing Dlock dlock acquirement %s," +
+			" it does not exist, thus do nothing\n", lockName)
+		return false, nil
+	}
+
+	err = dlockAcq.RefreshAcquirement(sequence, timestamp)
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }
 
