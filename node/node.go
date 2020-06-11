@@ -53,6 +53,9 @@ type Node struct{
 	// all peers
 	PeerList []*PeerNode
 
+	// dlock interchange, available only if node state is Leader
+	DlockInterchangeInstance *DlockInterchange
+
 	// mutex for node object
 	mutex sync.Mutex
 }
@@ -207,7 +210,7 @@ func (n *Node) RunElectionDetectorModule() {
 	// refresh the election restart time, very important !
 	n.NodeContextInstance.ElectionRestartTime = time.Now()
 	n.mutex.Unlock()
-	n.NodeLogger.Infof("Start Election Module for Term %d, election timeout %s",
+	n.NodeLogger.Infof("Start Election Module for Term %d, election timeout %s.\n",
 		startElectionTerm, electionTimeout)
 
 	// the ticker, every 10 ms ticks once
@@ -220,14 +223,14 @@ func (n *Node) RunElectionDetectorModule() {
 		n.mutex.Lock()
 		// state has changed to leader or dead, jump out of election module, as it won't become candidate
 		if n.NodeContextInstance.NodeState != Candidate && n.NodeContextInstance.NodeState != Follower {
-			n.NodeLogger.Infof("Election timer has found a state change: %d", n.NodeContextInstance.NodeState)
+			n.NodeLogger.Debugf("Election timer has found a state change: %d.", n.NodeContextInstance.NodeState)
 			n.mutex.Unlock()
 			return
 		}
 
 		// if term changes, also jump out of election module
 		if n.NodeContextInstance.CurrentTerm > startElectionTerm {
-			n.NodeLogger.Infof("Election timer has found a term change: %d", n.NodeContextInstance.CurrentTerm)
+			n.NodeLogger.Debugf("Election timer has found a term change: %d.", n.NodeContextInstance.CurrentTerm)
 			n.mutex.Unlock()
 			return
 		}
@@ -235,8 +238,8 @@ func (n *Node) RunElectionDetectorModule() {
 		// if the time experienced exceeds election timeout, begin an election module
 		timeExperienced := time.Since(n.NodeContextInstance.ElectionRestartTime)
 		if timeExperienced >= electionTimeout{
-			n.NodeLogger.Infof("Entering the candidate vote module, Current Term %d," +
-				" time experienced %s", startElectionTerm, timeExperienced)
+			n.NodeLogger.Debugf("Entering the candidate vote module, Current Term %d," +
+				" time experienced %s.", startElectionTerm, timeExperienced)
 			n.StartCandidateVoteModule()
 			n.mutex.Unlock()
 			return
@@ -264,7 +267,7 @@ func (n *Node) StartCandidateVoteModule() {
 	// reset hop
 	n.NodeContextInstance.HopToCurrentLeaderId = 0
 
-	n.NodeLogger.Infof("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
+	n.NodeLogger.Debugf("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
 
 	// the collected vote number and map
 	collectedVote := 1
@@ -279,14 +282,14 @@ func (n *Node) StartCandidateVoteModule() {
 
 			// state has changed to leader or dead, jump out of election module, as it won't become candidate
 			if n.NodeContextInstance.NodeState != Candidate && n.NodeContextInstance.NodeState != Follower {
-				n.NodeLogger.Infof("Candidate Vote module has found a state change: %d",
+				n.NodeLogger.Debugf("Candidate Vote module has found a state change: %d",
 					n.NodeContextInstance.NodeState)
 				n.mutex.Unlock()
 				return
 			}
 			// if term changes, also jump out of election module
 			if n.NodeContextInstance.CurrentTerm > savedCurrentTerm {
-				n.NodeLogger.Infof("Candidate Vote module has found a term change: from %d to %d",
+				n.NodeLogger.Debugf("Candidate Vote module has found a term change: from %d to %d",
 					savedCurrentTerm, n.NodeContextInstance.CurrentTerm)
 				n.mutex.Unlock()
 				return
@@ -311,7 +314,7 @@ func (n *Node) StartCandidateVoteModule() {
 				PrevEntryIndex: n.LogEntryInMemory.MaximumIndex(),
 				PrevEntryTerm:  maximumEntryTerm,
 			}
-			n.NodeLogger.Infof("The Candidate Vote request: %+v", request)
+			n.NodeLogger.Debugf("The Candidate Vote request: %+v", request)
 			// release mutex before sending GRPC request
 			n.mutex.Unlock()
 
@@ -321,20 +324,20 @@ func (n *Node) StartCandidateVoteModule() {
 				n.NodeLogger.Errorf("Send GRPC Candidate Vote fails, error: %s", err)
 				return
 			}
-			n.NodeLogger.Infof("Get response from Candidate Vote, %+v", response)
+			n.NodeLogger.Debugf("Get response from Candidate Vote, %+v", response)
 
 			n.mutex.Lock()
 			defer n.mutex.Unlock()
 			// state has already changed
 			if n.NodeContextInstance.NodeState != Candidate {
-				n.NodeLogger.Infof("During waiting Candidate Vote response, state changes to %d",
+				n.NodeLogger.Debugf("During waiting Candidate Vote response, state changes to %d",
 					n.NodeContextInstance.NodeState)
 				return
 			}
 			// term has increased
 			// note that the term to compared is the term when StartCandidateVoteModule starts
 			if response.Term > savedCurrentTerm {
-				n.NodeLogger.Infof("During waiting CandidateVote response, term changes to %d",
+				n.NodeLogger.Debugf("During waiting CandidateVote response, term changes to %d",
 					response.Term)
 				n.BecomeFollower(response.Term)
 				return
@@ -343,12 +346,12 @@ func (n *Node) StartCandidateVoteModule() {
 				if response.Accepted == true && voteMap[peerObj.PeerId] == false {
 					collectedVote += 1
 					voteMap[peerObj.PeerId] = true
-					n.NodeLogger.Infof("Receive successful CandidateVote response from node %d, now " +
+					n.NodeLogger.Debugf("Receive successful CandidateVote response from node %d, now " +
 						"have %d votes in term %d", response.NodeId, collectedVote, response.Term)
 				}
 				// if collected vote exceeds n/2 + 1, then become a leader
 				if 2 * collectedVote > len(n.NodeConfigInstance.Id.PeerId) + 1 {
-					n.NodeLogger.Infof("Node collects %d CandidateVote response in term %d, now become leader.",
+					n.NodeLogger.Debugf("Node collects %d CandidateVote response in term %d, now become leader.",
 						collectedVote, response.Term)
 					n.BecomeLeader()
 					return
@@ -384,6 +387,15 @@ func (n *Node) BecomeLeader() {
 
 	n.NodeLogger.Infof("Node become leader in term %d.", n.NodeContextInstance.CurrentTerm)
 	n.NodeContextInstance.NodeState = Leader
+	// when first become a leader, create a new dlockInterchange
+	n.DlockInterchangeInstance = NewDlockInterchange(n)
+	err := n.DlockInterchangeInstance.InitFromDLockStateMap(time.Now().UnixNano())
+	if err != nil {
+		n.NodeLogger.Errorf("Init DLock Interchange fails, error %s.\n")
+	}
+	// start a new goroutine to monitor the DLocks
+	go n.DlockInterchangeInstance.ReleaseExpiredDLockPeriodically()
+
 	for _, peer := range n.PeerList {
 		// start to search for last common entry index with every peer, beginning from the current maximum index + 1
 		peer.NextIndex = n.LogEntryInMemory.MaximumIndex() + 1
@@ -403,7 +415,7 @@ func (n *Node) BecomeLeader() {
 			select {
 			// if tick time exceeds heartbeat interval
 			case <-timer.C:
-				n.NodeLogger.Infof("Sending AppendEntries to all peers is triggered by heartbeat, term %d",
+				n.NodeLogger.Debugf("Sending AppendEntries to all peers is triggered by heartbeat, term %d",
 					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
@@ -412,7 +424,7 @@ func (n *Node) BecomeLeader() {
 
 			// or if semaphore for sending AppendEntries is triggered deliberately
 			case <-n.NodeContextInstance.AppendEntryChan:
-				n.NodeLogger.Infof("Sending AppendEntries to all peers is triggered by new Entries, term %d",
+				n.NodeLogger.Debugf("Sending AppendEntries to all peers is triggered by new Entries, term %d",
 					n.NodeContextInstance.CurrentTerm)
 				sendTag = true
 				// Reset timer
@@ -426,7 +438,7 @@ func (n *Node) BecomeLeader() {
 			if sendTag {
 				n.mutex.Lock()
 				if n.NodeContextInstance.NodeState == Leader {
-					n.NodeLogger.Infof("Now begin to send AppendEntries to all peers, term %d",
+					n.NodeLogger.Debugf("Now begin to send AppendEntries to all peers, term %d",
 						n.NodeContextInstance.CurrentTerm)
 					n.mutex.Unlock()
 					n.SendAppendEntriesToPeers(nil)
@@ -456,17 +468,17 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 		// peerList == nil means send to all peers
 		// if peerList != nil, only send to peers in peerList
 		if peerList != nil && !utils.NumberInUint32List(peerList, peer.PeerId) {
-			n.NodeLogger.Infof("When sending AppendEntries, Node %d is skipped.", peer.PeerId)
+			n.NodeLogger.Debugf("When sending AppendEntries, Node %d is skipped.", peer.PeerId)
 			continue
 		}
 		indexIntermediate := i
-		n.NodeLogger.Infof("Trigger a goroutine for AppendEntries to node %d at Term %d",
+		n.NodeLogger.Debugf("Trigger a goroutine for AppendEntries to node %d at Term %d",
 			peer.PeerId, startCurrentTerm)
 		go func() {
 			n.mutex.Lock()
 			// get out of the module when finding that the node is not leader
 			if n.NodeContextInstance.NodeState != Leader {
-				n.NodeLogger.Infof("Before sending AppendEntries to %d, state has changed to %d.",
+				n.NodeLogger.Debugf("Before sending AppendEntries to %d, state has changed to %d.",
 					n.PeerList[indexIntermediate].PeerId, n.NodeContextInstance.NodeState)
 				n.mutex.Unlock()
 				return
@@ -477,7 +489,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			maximumIndex := n.LogEntryInMemory.MaximumIndex()
 			// note that entry list begins from nextIndex, and length new never exceeds maximumEntryListLength
 			entryLength := utils.Uint64Min(maximumEntryListLength, maximumIndex - prevIndexRecord)
-			n.NodeLogger.Infof("Before sending AppendEntries to peer %d, nextIndex: %d," +
+			n.NodeLogger.Debugf("Before sending AppendEntries to peer %d, nextIndex: %d," +
 				" prevIndex: %d, maximumIndex: %d, length of entry to be attached: %d",
 				n.PeerList[indexIntermediate].PeerId, nextIndexRecord, prevIndexRecord, maximumIndex, entryLength)
 
@@ -517,27 +529,27 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			// unlock before send the request by GRPC
 			n.mutex.Unlock()
 
-			n.NodeLogger.Infof("Sending AppendEntries to peer %d, %+v.",
+			n.NodeLogger.Debugf("Sending AppendEntries to peer %d, %+v.",
 				n.PeerList[indexIntermediate].PeerId, request)
 			response, err := n.PeerList[indexIntermediate].GrpcClient.SendGrpcAppendEntries(request)
 			if err != nil {
 				n.NodeLogger.Errorf("Send GRPC AppendEntries fails, error: %s.", err)
 				return
 			}
-			n.NodeLogger.Infof("Get response from AppendEntries, %+v.", response)
+			n.NodeLogger.Debugf("Get response from AppendEntries, %+v.", response)
 
 			// now begin to process the response
 			n.mutex.Lock()
 			// get out of the leader module when finding that the node is not leader
 			if n.NodeContextInstance.NodeState != Leader {
-				n.NodeLogger.Infof("Before getting AppendEntries response from %d, state has changed to %d.",
+				n.NodeLogger.Debugf("Before getting AppendEntries response from %d, state has changed to %d.",
 					n.PeerList[indexIntermediate].PeerId, n.NodeContextInstance.NodeState)
 				n.mutex.Unlock()
 				return
 			}
 			// become follower if the remote has higher term number
 			if response.Term > startCurrentTerm {
-				n.NodeLogger.Infof("Receiving AppendEntries response, but remote term of %d has changed to %d.",
+				n.NodeLogger.Debugf("Receiving AppendEntries response, but remote term of %d has changed to %d.",
 					response.NodeId, response.Term)
 				n.BecomeFollower(response.Term)
 				n.mutex.Unlock()
@@ -547,10 +559,10 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			if response.Term == startCurrentTerm{
 				if response.Success {
 					if prevIndexRecord + 1 <= prevIndexRecord + entryLength {
-						n.NodeLogger.Infof("Peer %d append entry from %d to %d succeeded.", response.NodeId,
+						n.NodeLogger.Debugf("Peer %d append entry from %d to %d succeeded.", response.NodeId,
 							prevIndexRecord + 1, prevIndexRecord + entryLength)
 					} else {
-						n.NodeLogger.Infof("Peer %d append no entries (for heartbeat).", response.NodeId)
+						n.NodeLogger.Debugf("Peer %d append no entries (for heartbeat).", response.NodeId)
 					}
 
 					// update nextIndex
@@ -575,14 +587,14 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						// if majority (>n/2+1) of peers commit, then itself commit
 						if 2 * matchedPeers > len(n.NodeConfigInstance.Id.PeerId) + 1 {
 							n.NodeContextInstance.CommitIndex = k
-							n.NodeLogger.Infof("Majority of peers append LogEntry " +
+							n.NodeLogger.Debugf("Majority of peers append LogEntry " +
 								"with index %d, now can commit it.", k)
 						}
 					}
 
 					// if some update to commitIndex happened, then start the commit goroutine
 					if n.NodeContextInstance.CommitIndex > origCommitIndex {
-						n.NodeLogger.Infof("Commitment is to be triggered by AppendEntries success in term %d, " +
+						n.NodeLogger.Debugf("Commitment is to be triggered by AppendEntries success in term %d, " +
 							"original commit index %d, to be committed index %d.",
 							startCurrentTerm, origCommitIndex, n.NodeContextInstance.CommitIndex)
 						// begin to update statemap
@@ -610,7 +622,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 					// thus, setting it as nextIndex is a kind of decrement (NextIndex--)
 					n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
 				}
-				n.NodeLogger.Infof("The nextIndex of node %d has changed to %d",
+				n.NodeLogger.Debugf("The nextIndex of node %d has changed to %d",
 					n.PeerList[indexIntermediate].PeerId, n.PeerList[indexIntermediate].NextIndex)
 
 				// start a new goroutine to process remaining entry append work
@@ -652,7 +664,7 @@ func (n *Node) commitProcedure() {
 			n.NodeLogger.Errorf("Update local DLock stateMap failed for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
 		} else {
-			n.NodeLogger.Infof("Update local DLock stateMap succeeded for entry from %d to %d.",
+			n.NodeLogger.Debugf("Update local DLock stateMap succeeded for entry from %d to %d.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 		}
 		err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
@@ -661,7 +673,7 @@ func (n *Node) commitProcedure() {
 			n.NodeLogger.Errorf("Update local KVStore stateMap fails for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
 		} else {
-			n.NodeLogger.Infof("Update local KVStore stateMap succeeded for entry from %d to %d.",
+			n.NodeLogger.Debugf("Update local KVStore stateMap succeeded for entry from %d to %d.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 		}
 		// don't forget to refresh LastAppliedIndex
@@ -700,7 +712,7 @@ func (n *Node) backupProcedure() {
 			n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, err)
 		} else {
-			n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
+			n.NodeLogger.Debugf("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
 				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
 			n.NodeContextInstance.LastBackupIndex = n.NodeContextInstance.CommitIndex
 		}

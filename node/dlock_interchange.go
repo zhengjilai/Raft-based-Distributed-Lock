@@ -482,13 +482,19 @@ func (di *DlockInterchange) ReleaseDLock(lockName string, applicant string, time
 // the running goroutine during the whole leader term
 func (di *DlockInterchange) ReleaseExpiredDLockPeriodically() {
 	// ticks every fixed interval
+	startLeaderTerm := di.LeaderTerm
 	ticker := time.NewTicker(time.Duration(di.NodeRef.NodeConfigInstance.Parameters.PollingInterval) * time.Millisecond)
 	for {
 		select {
-		// if semaphore for updating stateMap is triggered
+		// if semaphore for releasing expired dlock is triggered
 		case <- ticker.C:
+			// reserved for extreme cases, where di come nil
+			if di == nil {
+				return
+			}
 			di.NodeRef.mutex.Lock()
-			if di.LeaderTerm != di.NodeRef.NodeContextInstance.CurrentTerm {
+			// detect term change or state change
+			if di.NodeRef.NodeContextInstance.CurrentTerm != startLeaderTerm{
 				di.NodeRef.NodeLogger.Infof("Term changes when periodically releasing expired dlocks," +
 					" orig term %d, current term %d\n", di.LeaderTerm, di.NodeRef.NodeContextInstance.CurrentTerm)
 				di.NodeRef.mutex.Unlock()
