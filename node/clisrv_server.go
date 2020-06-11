@@ -9,6 +9,7 @@ import (
 	"github.com/dlock_raft/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 	"net"
 	"strings"
 	"time"
@@ -19,13 +20,23 @@ var CliSrvChangeStateInternalError = errors.New("dlock_raft.cli_server: " +
 var CliSrvQueryStateInternalError = errors.New("dlock_raft.cli_server: " +
 	"something wrong happens inside the server when querying state")
 var CliSrvChangeStateTimeoutError = errors.New("dlock_raft.cli_server: " +
-	"timeout for the dlock cli-server")
+	"timeout for the dLock cli-server")
 var CliSrvDeadError = errors.New("dlock_raft.cli_server: " +
 	"the node state is Dead, should start it")
 var CliSrvDeleteEmptyKeyValueError = errors.New("dlock_raft.cli_server: " +
 	"delState requests an empty key for deletion")
 var CliSrvGetEmptyKeyValueError = errors.New("dlock_raft.cli_server: " +
 	"getState requests an empty key for getting value")
+var CliSrvAcquireDLockInternalError = errors.New("dlock_raft.cli_server: " +
+	"something wrong happens inside the server when acquiring dLock")
+var CliSrvQueryDLockInternalError = errors.New("dlock_raft.cli_server: " +
+	"something wrong happens inside the server when querying dLock info")
+var CliSrvReleaseDLockInternalError = errors.New("dlock_raft.cli_server: " +
+	"something wrong happens inside the server when releasing dLock")
+var CliSrvQueryEmptyDLockError = errors.New("dlock_raft.cli_server: " +
+	"QueryDLock requests the information of an non-existing dLock")
+var CliSrvGetClientAddressError = errors.New("dlock_raft.cli_server: " +
+	"getting client address error")
 
 type GRPCCliSrvServerImpl struct {
 
@@ -52,7 +63,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 		gs.NodeRef.mutex.Unlock()
 		return nil, CliSrvDeadError
 	}
-	gs.NodeRef.NodeLogger.Infof("Begin to precess Put/DelStateKV request, %+v.", request)
+	gs.NodeRef.NodeLogger.Debugf("Begin to precess Put/DelStateKV request, %+v.", request)
 
 	response := &pb.ClientPutStateKVResponse{
 		Committed:     false,
@@ -61,7 +72,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 
 	if gs.NodeRef.NodeContextInstance.NodeState != Leader {
 		// if node state is not Leader, only return the leader's ip:port
-		gs.NodeRef.NodeLogger.Infof("Node %d is not the current leader, begin to redirect the client.",
+		gs.NodeRef.NodeLogger.Debugf("Node %d is not the current leader, begin to redirect the client.",
 			gs.NodeRef.NodeConfigInstance.Id.SelfId)
 		hopToLeaderId := gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId
 
@@ -78,7 +89,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 	} else {
 		// if node state is Leader, then construct an Entry and trigger an AppendEntries
 		// check until the constructed entry is committed
-		gs.NodeRef.NodeLogger.Infof("Node %d is the current leader, begin to process the state change",
+		gs.NodeRef.NodeLogger.Debugf("Node %d is the current leader, begin to process the state change",
 			gs.NodeRef.NodeConfigInstance.Id.SelfId)
 
 		// if operation is del state, first check whether a current state is existing
@@ -111,7 +122,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 			gs.NodeRef.mutex.Unlock()
 			return nil, CliSrvChangeStateInternalError
 		}
-		gs.NodeRef.NodeLogger.Infof("Constructed LogEntry index %d term %d " +
+		gs.NodeRef.NodeLogger.Debugf("Constructed LogEntry index %d term %d " +
 			"begin to wait for commitment by raft",
 			logEntry.Entry.Index, logEntry.Entry.Term)
 		// end of construction phrase, trigger append entry
@@ -141,7 +152,7 @@ func (gs *GRPCCliSrvServerImpl) PutStateKVService(ctx context.Context,
 					// check if the term is right
 					if fetchedLogEntry.Entry.Term == logEntry.Entry.Term{
 						response.Committed = true
-						gs.NodeRef.NodeLogger.Infof("Constructed LogEntry index %d term %d " +
+						gs.NodeRef.NodeLogger.Debugf("Constructed LogEntry index %d term %d " +
 							"has been committed by raft, now exit with response %+v.",
 							fetchedLogEntry.Entry.Index, fetchedLogEntry.Entry.Term, response)
 						gs.NodeRef.mutex.Unlock()
@@ -167,7 +178,7 @@ func (gs *GRPCCliSrvServerImpl) DelStateKVService(ctx context.Context,
 	// refine the request
 	// note that content = nil will trigger a delete state operation in Statemap
 	// refer to statemap_memory_impl.go for details
-	gs.NodeRef.NodeLogger.Infof("Begin to process DelStateKV request, %+v.", request)
+	gs.NodeRef.NodeLogger.Debugf("Begin to process DelStateKV request, %+v.", request)
 	requestRefine := &pb.ClientPutStateKVRequest{
 		Key:     request.Key,
 		Content: nil,
@@ -181,7 +192,7 @@ func (gs *GRPCCliSrvServerImpl) DelStateKVService(ctx context.Context,
 			Committed:     response.Committed,
 			CurrentLeader: response.CurrentLeader,
 		}
-		gs.NodeRef.NodeLogger.Infof("End of processing DelStateKV request, %+v.", responseRefine)
+		gs.NodeRef.NodeLogger.Debugf("End of processing DelStateKV request, %+v.", responseRefine)
 		return responseRefine, nil
 	}
 
@@ -192,7 +203,7 @@ func (gs *GRPCCliSrvServerImpl) GetStateKVService(ctx context.Context,
 
 	// lock before doing anything
 	gs.NodeRef.mutex.Lock()
-	gs.NodeRef.NodeLogger.Infof("Begin to process GetStateKV request, %+v.", request)
+	gs.NodeRef.NodeLogger.Debugf("Begin to process GetStateKV request, %+v.", request)
 
 	// query KV in state map
 	// mote that state in statemap has already been committed
@@ -218,13 +229,156 @@ func (gs *GRPCCliSrvServerImpl) GetStateKVService(ctx context.Context,
 		Value:   stateForKeyByte,
 	}
 
-	gs.NodeRef.NodeLogger.Infof("End of processing GetStateKV request, %+v.", response)
+	gs.NodeRef.NodeLogger.Debugf("End of processing GetStateKV request, %+v.", response)
 	gs.NodeRef.mutex.Unlock()
 	return response, nil
 
 }
 
-// should input the self
+func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
+	request *pb.ClientAcquireDLockRequest) (*pb.ClientAcquireDLockResponse, error) {
+	return nil, nil
+}
+
+func (gs *GRPCCliSrvServerImpl) QueryDLockService(ctx context.Context,
+	request *pb.ClientQueryDLockRequest) (*pb.ClientQueryDLockResponse, error) {
+	// lock before doing anything
+	gs.NodeRef.mutex.Lock()
+	gs.NodeRef.NodeLogger.Debugf("Begin to process QueryDLock request, %+v.", request)
+
+	// construct response
+	response := &pb.ClientQueryDLockResponse{
+		Owner:      "",
+		Nonce:      0,
+		Timestamp:  0,
+		Expire:     0,
+		PendingNum: -1,
+	}
+
+	// update response from statemap state
+	state, err := gs.NodeRef.StateMapDLock.QuerySpecificState(request.LockName)
+	if err == storage.InMemoryStateMapDLockFetchError {
+		gs.NodeRef.mutex.Unlock()
+		return nil, CliSrvQueryEmptyDLockError
+	} else if err != nil {
+		gs.NodeRef.mutex.Unlock()
+		return nil, CliSrvQueryDLockInternalError
+	}
+
+	stateDecoded, ok := state.(*storage.DlockState)
+	if !ok {
+		gs.NodeRef.mutex.Unlock()
+		return nil, CliSrvQueryDLockInternalError
+	}
+	response.Owner = stateDecoded.Owner
+	response.Timestamp = stateDecoded.Timestamp
+	response.Expire = stateDecoded.Expire
+	response.Nonce = stateDecoded.LockNonce
+
+	// query acquirement info only if the node state is leader
+	if gs.NodeRef.NodeContextInstance.NodeState == Leader {
+		response.PendingNum = gs.NodeRef.DlockInterchangeInstance.QueryDLockAcquirementInfo(request.LockName)
+	}
+
+	gs.NodeRef.NodeLogger.Debugf("End of processing QueryDLock request, %+v.", response)
+	gs.NodeRef.mutex.Unlock()
+	return nil, nil
+}
+
+func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
+	request *pb.ClientReleaseDLockRequest) (*pb.ClientReleaseDLockResponse, error) {
+
+	gs.NodeRef.NodeLogger.Debugf("Begin to process ReleaseDLock request, %+v.", request)
+
+	// get client ip address (used to construct clientId)
+	ip, err := gs.GetIPAddressFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	response := &pb.ClientReleaseDLockResponse{
+		Released:      false,
+		CurrentLeader: "",
+	}
+
+	// lock before doing anything
+	gs.NodeRef.mutex.Lock()
+
+	if gs.NodeRef.NodeContextInstance.NodeState != Leader {
+		hopToLeaderId := gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId
+		if hopToLeaderId == 0 {
+			// no potential leader, then select a random leader
+			response.CurrentLeader = utils.RandomObjectInStringList(gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress)
+		} else {
+			// have potential leader, then return its ip:port address
+			indexToLeaderIpPort := utils.IndexInUint32List(gs.NodeRef.NodeConfigInstance.Id.PeerId, hopToLeaderId)
+			response.CurrentLeader = gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress[indexToLeaderIpPort]
+		}
+		gs.NodeRef.NodeLogger.Debugf("Release DLock request terminates as current node is not Leader, %+v.", response)
+		return response, nil
+	} else {
+		clientId := ip + request.ClientIDSuffix
+		timestamp := time.Now().UnixNano()
+		releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
+		if err != nil || releaseInfo == ErrorReserve{
+			return nil, CliSrvReleaseDLockInternalError
+		}
+		if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased || releaseInfo == TriggerReleaseSuccess {
+			response.Released = true
+			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), %+v.", releaseInfo, response)
+			gs.NodeRef.mutex.Unlock()
+			return response, nil
+		} else {
+			// now releaseInfo only has one potential: TriggerReleaseLater
+			// so we begin to trigger release periodically, until timeout or release succeeded
+
+			// the ticker for check
+			ticker := time.NewTicker(time.Duration(gs.NodeRef.NodeConfigInstance.Parameters.PollingInterval) * time.Millisecond)
+			defer ticker.Stop()
+			timer := time.NewTimer(time.Duration(gs.NodeRef.NodeConfigInstance.Parameters.StateChangeTimeout) * time.Millisecond)
+			defer timer.Stop()
+			gs.NodeRef.mutex.Unlock()
+
+			for {
+				select {
+				case <-ticker.C:
+					gs.NodeRef.mutex.Lock()
+					timestamp := time.Now().UnixNano()
+					releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(
+						request.LockName, clientId, timestamp)
+					if err != nil || releaseInfo == ErrorReserve {
+						return nil, CliSrvReleaseDLockInternalError
+					}
+					if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased || releaseInfo == TriggerReleaseSuccess {
+						response.Released = true
+						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), %+v.",
+							releaseInfo, response)
+						gs.NodeRef.mutex.Unlock()
+						return response, nil
+					}
+					gs.NodeRef.mutex.Unlock()
+				case <-timer.C:
+					return response, nil
+				}
+			}
+		}
+	}
+}
+
+// get ip address (string) from context
+// ip address is often used to get ClientId (owner)
+func (gs *GRPCCliSrvServerImpl) GetIPAddressFromContext(ctx context.Context) (string, error){
+	peerFromContext, ok := peer.FromContext(ctx)
+	if !ok || peerFromContext.Addr == nil {
+		return "", CliSrvGetClientAddressError
+	}
+	ip, _, err := net.SplitHostPort(peerFromContext.Addr.String())
+	if err != nil {
+		return "", CliSrvGetClientAddressError
+	}
+	return ip, nil
+}
+
+// start cli-srv grpc service
 func (gs *GRPCCliSrvServerImpl) StartService() {
 
 	// get the listing address

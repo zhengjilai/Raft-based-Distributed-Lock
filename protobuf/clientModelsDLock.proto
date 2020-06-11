@@ -7,18 +7,21 @@ message ClientAcquireDLockRequest {
     // the name of lockName
     string lockName = 1;
 
+    // the suffix for clientId (ip+suffix)
+    string clientIDSuffix = 2;
+
     // the expire of dlock, format: ns
-    int64 expire = 2;
+    int64 expire = 3;
 
     // the sequence of acquirement
     // if this field is not 0, then refresh acquirement will be triggered
-    uint32 sequence = 3;
+    uint32 sequence = 4;
 }
 
 message ClientAcquireDLockResponse {
 
     // boolean indicator, whether the dlock acquirement is pending or not
-    // once pending = false, client begin to query the dlock state and find whether its dlock is functioning
+    // once pending == false, client begin to query the dlock state and find whether its dlock is functioning
     bool pending = 1;
 
     // sequence number, only return if pending = true (dlock is occupied)
@@ -59,12 +62,18 @@ message ClientReleaseDLockRequest {
     // the name of dlock
     string lockName  = 1;
 
+    // the suffix for clientId (ip+suffix)
+    string clientIDSuffix = 2;
+
 }
 
 message ClientReleaseDLockResponse {
 
-    // released is true if
+    // released is true iff
     // 1. the specific dlock has already been released
     // 2. a release LogEntry is appended successfully (but may not be committed yet)
     bool released = 1;
+
+    // if the requested peer is not the current leader, return the leader ip:port
+    string currentLeader = 2;
 }

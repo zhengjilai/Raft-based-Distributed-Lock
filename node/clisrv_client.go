@@ -7,6 +7,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/peer"
+	"net"
 	"time"
 )
 
@@ -191,8 +193,16 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcAcquireDLock(
 	// register grpc client
 	clientRPCOutside := pb.NewRaftRPCOutsideClientClient(gc.conn)
 
-	// set append entry timeout
-	ctx, cancel := context.WithTimeout(context.Background(),
+	// set acquire dlock timeout
+	addrList, err := net.InterfaceAddrs()
+	if err != nil || len(addrList) == 0 {
+		return nil, err
+	}
+	peerContext := peer.NewContext(context.Background(), &peer.Peer{
+		Addr:  addrList[0],
+		AuthInfo: nil,
+	})
+	ctx, cancel := context.WithTimeout(peerContext,
 		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
@@ -224,7 +234,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcQueryDLock(
 	// register grpc client
 	clientRPCOutside := pb.NewRaftRPCOutsideClientClient(gc.conn)
 
-	// set append entry timeout
+	// set query dlock timeout
 	ctx, cancel := context.WithTimeout(context.Background(),
 		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
@@ -257,8 +267,16 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcReleaseDLock(
 	// register grpc client
 	clientRPCOutside := pb.NewRaftRPCOutsideClientClient(gc.conn)
 
-	// set append entry timeout
-	ctx, cancel := context.WithTimeout(context.Background(),
+	// set release dlock timeout
+	addrList, err := net.InterfaceAddrs()
+	if err != nil || len(addrList) == 0 {
+		return nil, err
+	}
+	peerContext := peer.NewContext(context.Background(), &peer.Peer{
+		Addr:  addrList[0],
+		AuthInfo: nil,
+	})
+	ctx, cancel := context.WithTimeout(peerContext,
 		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
