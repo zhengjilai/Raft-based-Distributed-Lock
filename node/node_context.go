@@ -13,7 +13,6 @@ const (
 	Leader
 	Candidate
 	Follower
-	Unknown
 )
 
 // NodeContext is the concrete implementation of NodeContext.
