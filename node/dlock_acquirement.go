@@ -44,7 +44,6 @@ func NewDlockVolatileAcquirement(lockName string, lastAppendedNonce uint32) *Dlo
 }
 
 // update an requirement with current timestamp, in case it expires
-// time stamp format ns: obtained by time.Now().UnixNano()
 func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, timestamp int64) error {
 
 	// first refresh pending acquirement list

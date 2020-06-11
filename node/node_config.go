@@ -61,7 +61,7 @@ type NodeConfig struct{
 		// the path for log file
 		LogPath string `yaml:"log_path"`
 		
-		// the path for persistant entry storage
+		// the path for persistent entry storage
 		EntryStoragePath string `yaml:"entry_storage_path"`
 	}
 }

@@ -641,6 +641,7 @@ func (n *Node) CommitToStateMap() {
 	}
 }
 
+// should enter with mutex
 func (n *Node) commitProcedure() {
 	// if new entries should be applied to stateMaps
 	if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastAppliedIndex{
@@ -676,29 +677,32 @@ func (n *Node) BackUpLogMemoryToDisk() {
 
 	// ticks every fixed interval
 	ticker := time.NewTicker(time.Duration(n.NodeConfigInstance.Parameters.LogBackupInterval) * time.Millisecond)
-
 	for {
-
 		select {
 		// if semaphore for updating stateMap is triggered
 		case <- ticker.C:
 			n.mutex.Lock()
-			// if new committed entries should be backup
-			if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastBackupIndex &&
-				n.NodeContextInstance.DiskLogEntry != nil {
-				// back up the LogEntries
-				writeBytes, err := n.LogEntryInMemory.StoreLogMemory(n.NodeContextInstance.LastBackupIndex + 1,
-					n.NodeContextInstance.CommitIndex, n.NodeContextInstance.DiskLogEntry)
-				if err != nil {
-					n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
-						n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, err)
-				} else {
-					n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
-						n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
-					n.NodeContextInstance.LastBackupIndex = n.NodeContextInstance.CommitIndex
-				}
-			}
+			n.backupProcedure()
 			n.mutex.Unlock()
+		}
+	}
+}
+
+// should enter with mutex
+func (n *Node) backupProcedure() {
+	// if new committed entries should be backup
+	if n.NodeContextInstance.CommitIndex > n.NodeContextInstance.LastBackupIndex &&
+		n.NodeContextInstance.DiskLogEntry != nil {
+		// back up the LogEntries
+		writeBytes, err := n.LogEntryInMemory.StoreLogMemory(n.NodeContextInstance.LastBackupIndex + 1,
+			n.NodeContextInstance.CommitIndex, n.NodeContextInstance.DiskLogEntry)
+		if err != nil {
+			n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
+				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, err)
+		} else {
+			n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
+				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
+			n.NodeContextInstance.LastBackupIndex = n.NodeContextInstance.CommitIndex
 		}
 	}
 }
