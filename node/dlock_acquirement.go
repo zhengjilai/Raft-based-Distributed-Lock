@@ -124,18 +124,15 @@ func (dva *DlockVolatileAcquirement) InsertNewAcquirement(command *storage.Comma
 	}
 
 	// if we do not find an acquirement with the same acquirer, construct a pending acquirement
-	dlockAcqInfo := &DlockAcquirementInfo{
-		Acquirer:               acquirer,
-		LastRefreshedTimestamp: timestamp,
-		Expire:                 expire,
-		Command:                command,
-	}
+	dlockAcqInfo := NewDlockAcquirementInfo(acquirer, timestamp, expire, command)
+
 	dva.lastAssignedAcquirement += 1
 	dva.PendingAcquirement[dva.lastAssignedAcquirement] = dlockAcqInfo
 	return dva.lastAssignedAcquirement, nil
 
 }
 
+// remember that this function will not increment dva.LastAppendedNonce
 func (dva *DlockVolatileAcquirement) PopFirstValidAcquirement(timestamp int64) (*storage.CommandDLock, error) {
 
 	// first refresh pending list
@@ -165,6 +162,7 @@ func (dva *DlockVolatileAcquirement) PopFirstValidAcquirement(timestamp int64) (
 		if err != nil {
 			return nil, err
 		}
+		dva.lastProcessedAcquirement += 1
 		return fetchedAcquirement.Command, nil
 	}
 }
