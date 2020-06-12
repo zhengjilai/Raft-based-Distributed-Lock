@@ -14,7 +14,7 @@ message ClientAcquireDLockRequest {
     int64 expire = 3;
 
     // the sequence of acquirement
-    // if this field is not 0, then refresh acquirement will be triggered
+    // if this field is not 0, then refresh acquirement process will be triggered
     uint32 sequence = 4;
 }
 

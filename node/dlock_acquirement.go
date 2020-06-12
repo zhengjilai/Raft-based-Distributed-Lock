@@ -43,7 +43,7 @@ func NewDlockVolatileAcquirement(lockName string, lastAppendedNonce uint32) *Dlo
 		PendingAcquirement:       make(map[uint32]*DlockAcquirementInfo)}
 }
 
-// update an requirement with current timestamp, in case it expires
+// update an acquirement with current timestamp, in case it expires
 func (dva *DlockVolatileAcquirement) RefreshAcquirement(acquireSeq uint32, timestamp int64) error {
 
 	// first refresh pending acquirement list

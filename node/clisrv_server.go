@@ -237,13 +237,95 @@ func (gs *GRPCCliSrvServerImpl) GetStateKVService(ctx context.Context,
 
 func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 	request *pb.ClientAcquireDLockRequest) (*pb.ClientAcquireDLockResponse, error) {
-	return nil, nil
+
+	gs.NodeRef.NodeLogger.Debugf("Begin to process AcquireDLock request, %+v.", request)
+
+	// get client ip address (used to construct clientId)
+	ip, err := gs.GetIPAddressFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	response := &pb.ClientAcquireDLockResponse{
+		Pending:       true,
+		Sequence:      0,
+		CurrentLeader: "",
+	}
+
+	// lock before doing anything
+	gs.NodeRef.mutex.Lock()
+	defer gs.NodeRef.mutex.Unlock()
+
+	if gs.NodeRef.NodeContextInstance.NodeState != Leader {
+		hopToLeaderId := gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId
+		if hopToLeaderId == 0 {
+			// no potential leader, then select a random leader
+			response.CurrentLeader = utils.RandomObjectInStringList(gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress)
+		} else {
+			// have potential leader, then return its ip:port address
+			indexToLeaderIpPort := utils.IndexInUint32List(gs.NodeRef.NodeConfigInstance.Id.PeerId, hopToLeaderId)
+			response.CurrentLeader = gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress[indexToLeaderIpPort]
+		}
+		gs.NodeRef.NodeLogger.Debugf("Acquire DLock request terminates as current node is not Leader, %+v.", response)
+		return response, nil
+	} else {
+
+		clientId := ip + request.ClientIDSuffix
+		timestamp := time.Now().UnixNano()
+
+		if request.Sequence != 0 {
+			// request.sequence != 0 means the client wants to refresh a dLock acquirement by its sequence
+			refreshSuccess, err := gs.NodeRef.DlockInterchangeInstance.RefreshAcquirementBySequence(request.LockName, request.Sequence, timestamp)
+			if err != nil {
+				gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s fails, error %s",
+					request.LockName, err)
+				return nil, CliSrvAcquireDLockInternalError
+			} else {
+				response.Pending = refreshSuccess
+				if refreshSuccess {
+					response.Sequence = request.Sequence
+					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d succeeded, response %+v",
+						request.LockName, request.Sequence, response)
+				} else {
+					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d " +
+						"failed, since the acquirement does not exist or has already expired, response %+v",
+						request.LockName, request.Sequence, response)
+				}
+				return response, nil
+			}
+		} else {
+			// now request.sequence == 0, meaning client wants to acquire a new dLock
+			// construct command, lockNonce and timestamp will be refreshed in AcquireDLock, don't worry (smile)
+			command, err := storage.NewCommandDLock(0, request.LockName, clientId, timestamp, request.Expire)
+			if err != nil {
+				return nil, CliSrvAcquireDLockInternalError
+			}
+			sequence, err := gs.NodeRef.DlockInterchangeInstance.AcquireDLock(request.LockName, timestamp, command)
+			if err != nil {
+				gs.NodeRef.NodeLogger.Debugf("Acquire dLock %s fails due to %s", request.LockName, err)
+				return nil, CliSrvAcquireDLockInternalError
+			}
+			if sequence == 0 {
+				// meaning that a LogEntry is directly appended to LogMemory
+				response.Pending = false
+				gs.NodeRef.NodeLogger.Debugf("Trigger Acquire dLock %s succeeded " +
+					"by directly appending a LogEntry, response %+v", request.LockName, response)
+				return response, nil
+			} else {
+				response.Pending = true
+				response.Sequence = sequence
+				gs.NodeRef.NodeLogger.Debugf("Trigger Acquire dLock %s by inserting an acquirement to pending list," +
+					" sequence %d, response %+v", request.LockName, sequence, response)
+				return response, nil
+			}
+		}
+	}
 }
 
 func (gs *GRPCCliSrvServerImpl) QueryDLockService(ctx context.Context,
 	request *pb.ClientQueryDLockRequest) (*pb.ClientQueryDLockResponse, error) {
 	// lock before doing anything
 	gs.NodeRef.mutex.Lock()
+	defer gs.NodeRef.mutex.Unlock()
 	gs.NodeRef.NodeLogger.Debugf("Begin to process QueryDLock request, %+v.", request)
 
 	// construct response
@@ -258,16 +340,13 @@ func (gs *GRPCCliSrvServerImpl) QueryDLockService(ctx context.Context,
 	// update response from statemap state
 	state, err := gs.NodeRef.StateMapDLock.QuerySpecificState(request.LockName)
 	if err == storage.InMemoryStateMapDLockFetchError {
-		gs.NodeRef.mutex.Unlock()
 		return nil, CliSrvQueryEmptyDLockError
 	} else if err != nil {
-		gs.NodeRef.mutex.Unlock()
 		return nil, CliSrvQueryDLockInternalError
 	}
 
 	stateDecoded, ok := state.(*storage.DlockState)
 	if !ok {
-		gs.NodeRef.mutex.Unlock()
 		return nil, CliSrvQueryDLockInternalError
 	}
 	response.Owner = stateDecoded.Owner
@@ -281,8 +360,7 @@ func (gs *GRPCCliSrvServerImpl) QueryDLockService(ctx context.Context,
 	}
 
 	gs.NodeRef.NodeLogger.Debugf("End of processing QueryDLock request, %+v.", response)
-	gs.NodeRef.mutex.Unlock()
-	return nil, nil
+	return response, nil
 }
 
 func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
@@ -314,6 +392,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 			response.CurrentLeader = gs.NodeRef.NodeConfigInstance.Network.PeerCliAddress[indexToLeaderIpPort]
 		}
 		gs.NodeRef.NodeLogger.Debugf("Release DLock request terminates as current node is not Leader, %+v.", response)
+		gs.NodeRef.mutex.Unlock()
 		return response, nil
 	} else {
 		clientId := ip + request.ClientIDSuffix
@@ -346,6 +425,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 					releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(
 						request.LockName, clientId, timestamp)
 					if err != nil || releaseInfo == ErrorReserve {
+						gs.NodeRef.mutex.Unlock()
 						return nil, CliSrvReleaseDLockInternalError
 					}
 					if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased || releaseInfo == TriggerReleaseSuccess {
