@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"errors"
 	"math/rand"
+	"net"
 	"time"
 )
 
@@ -53,4 +55,26 @@ func RandomObjectInStringList(list []string) string {
 		randIndex := rand.Intn(len(list))
 		return list[randIndex]
 	}
+}
+
+func GetLocalIP() (net.Addr, string, error) {
+
+	// set release dlock timeout
+	addrList, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, "", err
+	}
+	for i, addr := range addrList {
+		ip, _, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			continue
+		} else if ip != "127.0.0.1" && ip != "0.0.0.0" {
+			return addrList[i], ip, nil
+		}
+	}
+	return nil, "", errors.New("dlock_client: cannot get Local IP Address")
+}
+
+func FuseClientIp(ip string, suffix string) string{
+	return ip + "::" + suffix
 }

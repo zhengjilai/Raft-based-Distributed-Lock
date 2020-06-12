@@ -245,6 +245,7 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
 	response := &pb.ClientAcquireDLockResponse{
 		Pending:       true,
 		Sequence:      0,
@@ -267,9 +268,10 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 		}
 		gs.NodeRef.NodeLogger.Debugf("Acquire DLock request terminates as current node is not Leader, %+v.", response)
 		return response, nil
+
 	} else {
 
-		clientId := ip + request.ClientIDSuffix
+		clientId := utils.FuseClientIp(ip, request.ClientIDSuffix)
 		timestamp := time.Now().UnixNano()
 
 		if request.Sequence != 0 {
@@ -395,7 +397,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 		gs.NodeRef.mutex.Unlock()
 		return response, nil
 	} else {
-		clientId := ip + request.ClientIDSuffix
+		clientId := utils.FuseClientIp(ip, request.ClientIDSuffix)
 		timestamp := time.Now().UnixNano()
 		releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
 		if err != nil || releaseInfo == ErrorReserve{
