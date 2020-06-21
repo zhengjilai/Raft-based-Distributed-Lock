@@ -29,9 +29,9 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 			success := dLockRaftClientAPI.PutState(addressList[index % 3],
 				strconv.Itoa(index % 20), []byte(strconv.Itoa(index)))
 			if success {
-				fmt.Printf("GetState, Key %d succeeded", index)
+				fmt.Printf("KVTest: PetState, Key %d succeeded.\n", index)
 			} else {
-				fmt.Printf("GetState, Key %d failed", index)
+				fmt.Printf("KVTest: PetState, Key %d failed.\n", index)
 			}
 			group.Done()
 		}(i)
@@ -45,9 +45,9 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 			time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
 			success := dLockRaftClientAPI.DelState(addressList[index % 3], strconv.Itoa(index))
 			if success {
-				fmt.Printf("DelState, Key %d succeeded", index)
+				fmt.Printf("KVTest: DelState, Key %d succeeded.\n", index)
 			} else {
-				fmt.Printf("DelState, Key %d failed", index)
+				fmt.Printf("KVTest: DelState, Key %d failed.\n", index)
 			}
 			group.Done()
 		}(i)
@@ -62,9 +62,9 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 			value := dLockRaftClientAPI.GetState(addressList[index % 3], strconv.Itoa(index), timeout)
 			if value != nil {
 				digit, _ := strconv.Atoi(string(value))
-				fmt.Printf("GetState, Key: %d, Value %d", index, digit)
+				fmt.Printf("KVTest: GetState, Key: %d, Value %d.\n", index, digit)
 			} else {
-				fmt.Printf("GetState, Key: %d has no availble value.", index)
+				fmt.Printf("KVTest: GetState, Key: %d has no availble value.\n", index)
 			}
 			group.Done()
 		}(i)

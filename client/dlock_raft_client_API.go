@@ -21,7 +21,7 @@ func NewDLockRaftClientAPI(clientIdPreset ...string) *DLockRaftClientAPI {
 
 	// set default clientId, or use preset one
 	var clientId string
-	if len(clientIdPreset) > 0 || len(clientIdPreset[0]) != 27 {
+	if len(clientIdPreset) > 0 && len(clientIdPreset[0]) != 27 {
 		clientId = clientIdPreset[0]
 		fmt.Printf("Preset Client Id (UUID) %s succeeded.\n", clientId)
 	} else {
@@ -80,33 +80,33 @@ func (drc *DLockRaftClientAPI) PutState(address string, key string, value []byte
 	response, err := drc.CliSrvHandler[address].SendGrpcPutState(request)
 	// error happens in server
 	if err == node.CliSrvChangeStateTimeoutError {
-		fmt.Printf("PutState to %s meets raft commitment module timeout, request %+v \n",
+		fmt.Printf("PutState to %s meets raft commitment module timeout, request %+v.\n",
 			address, request)
 		return false
 	} else if err != nil {
-		fmt.Printf("Error happens when invoking PutState, %s\n", err)
+		fmt.Printf("Error happens when invoking PutState, %s.\n", err)
 		return false
 	}
 
 	// committed? redirected? other bugs?
 	if response.Committed == true {
-		fmt.Printf("PutState to %s succeeded, request %+v\n", address, request)
+		fmt.Printf("PutState to %s succeeded, request %+v.\n", address, request)
 		return true
 	} else if response.Committed == false && response.CurrentLeader != ""{
-		fmt.Printf("PutState to %s redirected, request %+v, redirected to %s \n",
+		fmt.Printf("PutState to %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
 		timeExperienced := time.Since(timeStart)
 		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {
 			return drc.PutState(response.CurrentLeader, key, value,
 				timeout - uint32(timeExperienced.Nanoseconds()/1000000))
 		} else {
-			fmt.Printf("Timeout for client PutState, timeout after %s\n",
+			fmt.Printf("Timeout for client PutState, timeout after %s.\n",
 				time.Duration(int64(timeout)) * time.Millisecond)
 			return false
 		}
 
 	} else {
-		fmt.Printf("PutState to %s meets server unknown error, request %+v\n",
+		fmt.Printf("PutState to %s meets server unknown error, request %+v.\n",
 			address, request)
 		return false
 	}
@@ -135,33 +135,33 @@ func (drc *DLockRaftClientAPI) DelState(address string, key string, timeoutOptio
 	response, err := drc.CliSrvHandler[address].SendGrpcDelState(request)
 	// error happens in server
 	if err == node.CliSrvChangeStateTimeoutError {
-		fmt.Printf("DelState to %s meets raft commitment module timeout, request %+v \n",
+		fmt.Printf("DelState to %s meets raft commitment module timeout, request %+v.\n",
 			address, request)
 		return false
 	} else if err != nil {
-		fmt.Printf("Error happens when invoking DelState, %s\n", err)
+		fmt.Printf("Error happens when invoking DelState, %s.\n", err)
 		return false
 	}
 
 	// committed? redirected? other bugs?
 	if response.Committed == true {
-		fmt.Printf("DelState to %s succeeded, request %+v\n", address, request)
+		fmt.Printf("DelState to %s succeeded, request %+v.\n", address, request)
 		return true
 	} else if response.Committed == false && response.CurrentLeader != ""{
-		fmt.Printf("DelState to %s redirected, request %+v, redirected to %s \n",
+		fmt.Printf("DelState to %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
 		timeExperienced := time.Since(timeStart)
 		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {
 			return drc.DelState(response.CurrentLeader, key,
 				timeout - uint32(timeExperienced.Nanoseconds()/1000000))
 		} else {
-			fmt.Printf("Timeout for client DelState, timeout after %s",
+			fmt.Printf("Timeout for client DelState, timeout after %s.\n",
 				time.Duration(int64(timeout)) * time.Millisecond)
 			return false
 		}
 
 	} else {
-		fmt.Printf("DelState to %s meets server unknown error, request %+v\n",
+		fmt.Printf("DelState to %s meets server unknown error, request %+v.\n",
 			address, request)
 		return false
 	}
@@ -186,20 +186,20 @@ func (drc *DLockRaftClientAPI) GetState(address string, key string, timeoutOptio
 	response, err := drc.CliSrvHandler[address].SendGrpcGetState(request)
 	// error happens in server
 	if err == node.CliSrvChangeStateTimeoutError {
-		fmt.Printf("GetState to %s meets raft commitment module timeout, request %+v \n",
+		fmt.Printf("GetState to %s meets raft commitment module timeout, request %+v.\n",
 			address, request)
 		return nil
 	} else if err != nil {
-		fmt.Printf("Error happens when invoking GetState, %s\n", err)
+		fmt.Printf("Error happens when invoking GetState, %s.\n", err)
 		return nil
 	}
 
 	// committed? redirected? other bugs?
 	if response.Success == true {
-		fmt.Printf("GetState to %s succeeded, request %+v, response %+v\n", address, request, response)
+		fmt.Printf("GetState to %s succeeded, request %+v, response %+v.\n", address, request, response)
 		return response.Value
 	} else {
-		fmt.Printf("GetState to %s fails, request %+v\n",
+		fmt.Printf("GetState to %s fails, request %+v.\n",
 			address, request)
 		return nil
 	}
@@ -234,21 +234,21 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 	response, err := drc.CliSrvHandler[address].SendGrpcAcquireDLock(request)
 	// error happens in server
 	if err != nil {
-		fmt.Printf("Error happens when invoking Acquire DLock, %s\n", err)
+		fmt.Printf("Error happens when invoking Acquire DLock, %s.\n", err)
 		return false
 	}
 
 	// redirected? succeeded? pending? other bugs?
 	startQueryTag := false
 	if response.CurrentLeader != ""{
-		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s \n",
+		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
 		timeExperienced := time.Since(timeStart)
 		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {
 			return drc.AcquireDLock(response.CurrentLeader, lockName, expire,
 				timeout - uint32(timeExperienced.Nanoseconds()/1000000))
 		} else {
-			fmt.Printf("Timeout for acquire DLock, timeout after %s",
+			fmt.Printf("Timeout for acquire DLock, timeout after %s.\n",
 				time.Duration(int64(timeout)) * time.Millisecond)
 			return false
 		}
@@ -257,7 +257,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 			address, request)
 		startQueryTag = true
 	} else if response.Sequence != 0 {
-		fmt.Printf("Acquire DLock %s pending, request %+v, acquirement sequence %d\n",
+		fmt.Printf("Acquire DLock %s pending, request %+v, acquirement sequence %d.\n",
 			address, request, response.Sequence)
 		request.Sequence = response.Sequence
 	}
@@ -282,7 +282,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 			if startQueryTag {
 				responseQuery, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(requestQuery)
 				if err != nil {
-					fmt.Printf("Error happens when checking state of Acquire DLock, %s\n", err)
+					fmt.Printf("Error happens when checking state of Acquire DLock, %s.\n", err)
 					return false
 				} else if responseQuery.Owner == drc.ClientId{
 					fmt.Printf("Acquireing DLock %s confirms success after checking state of Acquire DLock, " +
@@ -291,10 +291,10 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					return true
 				}
 				if responseQuery.PendingNum > 0 {
-					fmt.Printf("Acquire DLock %s is still pending, pending acquirement number %d",
+					fmt.Printf("Acquire DLock %s is still pending, pending acquirement number %d.\n",
 						request.LockName, responseQuery.PendingNum)
 				} else {
-					fmt.Printf("Acquire DLock %s is still pending", request.LockName)
+					fmt.Printf("Acquire DLock %s is still pending.\n", request.LockName)
 				}
 			}
 		case <- tickerRefresh.C:
@@ -304,7 +304,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				// error happens in server
 				// Note that currently we does not support leader redirection in this phrase
 				if err != nil || response.CurrentLeader != "" {
-					fmt.Printf("Error happens when invoking Acquire DLock, %s\n", err)
+					fmt.Printf("Error happens when invoking Acquire DLock, %s.\n", err)
 					return false
 				}
 				if response.Pending == false || response.Sequence == 0 {
@@ -314,7 +314,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				}
 			}
 		case <- timer.C:
-			fmt.Printf("Acquire DLock from %s meets server unknown error (timeout), request %+v\n",
+			fmt.Printf("Acquire DLock from %s meets server unknown error (timeout), request %+v.\n",
 				address, request)
 			return false
 		}
@@ -359,7 +359,7 @@ func (drc *DLockRaftClientAPI) QueryDLock(
 	response, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(request)
 	// error happens in server
 	if err != nil {
-		fmt.Printf("Error happens when invoking Query DLock, %s\n", err)
+		fmt.Printf("Error happens when invoking Query DLock, %s.\n", err)
 		return nil, false
 	}
 	responseLocal := &DLockQueryInfo{
@@ -403,7 +403,7 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 
 	// redirected? succeeded? pending? other bugs?
 	if response.CurrentLeader != ""{
-		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s \n",
+		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
 		timeExperienced := time.Since(timeStart)
 		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {
@@ -415,10 +415,10 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 			return false
 		}
 	} else if response.Released == true {
-		fmt.Printf("DLock %s has been released, meaning you does not possess it now.", lockName)
+		fmt.Printf("DLock %s has been released, meaning you does not possess it now.\n", lockName)
 		return true
 	} else {
-		fmt.Printf("Releasing DLock %s failed, meaning nothing have been done for releasing dlock.", lockName)
+		fmt.Printf("Releasing DLock %s failed, meaning nothing have been done for releasing dlock.\n", lockName)
 		return false
 	}
 }
