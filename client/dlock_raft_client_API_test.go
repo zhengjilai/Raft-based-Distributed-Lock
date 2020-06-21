@@ -14,8 +14,7 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 	var group sync.WaitGroup
 
 	timeout := uint32(2500)
-	clientId := "Tester"
-	dLockRaftClientAPI := NewDLockRaftClientAPI(clientId)
+	dLockRaftClientAPI := NewDLockRaftClientAPI()
 	addressList := [...]string {
 		"0.0.0.0:24005",
 		"0.0.0.0:24006",
@@ -70,5 +69,65 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 			group.Done()
 		}(i)
 	}
+	group.Wait()
+}
+
+func TestDLockRaftClientAPI_AcquireQueryReleaseDLock(t *testing.T) {
+
+	var group sync.WaitGroup
+	addressList := [...]string {
+		"0.0.0.0:24005",
+		"0.0.0.0:24006",
+		"0.0.0.0:24007",
+	}
+	// totally 3 acquirers
+	group.Add(3)
+
+	// dlock acquirer 1
+	go func() {
+		dlockClient1 := NewDLockRaftClientAPI()
+		dlockExpire := int64(8000)
+		dlockClient1.AcquireDLock(addressList[0], "dlock1", dlockExpire)
+		dlockClient1.QueryDLock(addressList[1], "dlock1")
+
+		time.Sleep(4000 * time.Millisecond)
+
+		dlockClient1.QueryDLock(addressList[2], "dlock1")
+		dlockClient1.QueryDLock(addressList[1], "dlock2")
+		dlockClient1.ReleaseDLock(addressList[2], "dlock1")
+
+		group.Done()
+	}()
+
+	// dlock acquirer 2
+	go func() {
+		dlockClient2 := NewDLockRaftClientAPI()
+		dlockExpire := int64(2000)
+		dlockClient2.AcquireDLock(addressList[1], "dlock1", dlockExpire)
+
+		time.Sleep(4000 * time.Millisecond)
+
+		dlockClient2.QueryDLock(addressList[0], "dlock1")
+		dlockClient2.QueryDLock(addressList[1], "dlock2")
+		dlockClient2.ReleaseDLock(addressList[2], "dlock1")
+
+		group.Done()
+	}()
+
+	// dlock acquirer 3
+	go func() {
+		dlockClient3 := NewDLockRaftClientAPI()
+		dlockExpire := int64(4000)
+		dlockClient3.AcquireDLock(addressList[2], "dlock1", dlockExpire)
+
+		time.Sleep(4000 * time.Millisecond)
+
+		dlockClient3.QueryDLock(addressList[2], "dlock1")
+		dlockClient3.QueryDLock(addressList[1], "dlock2")
+		dlockClient3.ReleaseDLock(addressList[2], "dlock1")
+
+		group.Done()
+	}()
+
 	group.Wait()
 }

@@ -240,12 +240,6 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 
 	gs.NodeRef.NodeLogger.Debugf("Begin to process AcquireDLock request, %+v.", request)
 
-	// get client ip address (used to construct clientId)
-	ip, err := gs.GetIPAddressFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	response := &pb.ClientAcquireDLockResponse{
 		Pending:       true,
 		Sequence:      0,
@@ -271,7 +265,7 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 
 	} else {
 
-		clientId := utils.FuseClientIp(ip, request.ClientIDSuffix)
+		clientId := request.ClientID
 		timestamp := time.Now().UnixNano()
 
 		if request.Sequence != 0 {
@@ -370,11 +364,6 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 
 	gs.NodeRef.NodeLogger.Debugf("Begin to process ReleaseDLock request, %+v.", request)
 
-	// get client ip address (used to construct clientId)
-	ip, err := gs.GetIPAddressFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
 	response := &pb.ClientReleaseDLockResponse{
 		Released:      false,
 		CurrentLeader: "",
@@ -397,7 +386,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 		gs.NodeRef.mutex.Unlock()
 		return response, nil
 	} else {
-		clientId := utils.FuseClientIp(ip, request.ClientIDSuffix)
+		clientId := request.ClientID
 		timestamp := time.Now().UnixNano()
 		releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
 		if err != nil || releaseInfo == ErrorReserve{

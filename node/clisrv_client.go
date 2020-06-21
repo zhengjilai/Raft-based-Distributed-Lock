@@ -4,11 +4,9 @@ package node
 import (
 	"fmt"
 	pb "github.com/dlock_raft/protobuf"
-	"github.com/dlock_raft/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/peer"
 	"time"
 )
 
@@ -193,16 +191,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcAcquireDLock(
 	// register grpc client
 	clientRPCOutside := pb.NewRaftRPCOutsideClientClient(gc.conn)
 
-	// set acquire dlock timeout
-	addr, _, err := utils.GetLocalIP()
-	if err != nil {
-		return nil, err
-	}
-	peerContext := peer.NewContext(context.Background(), &peer.Peer{
-		Addr:  addr,
-		AuthInfo: nil,
-	})
-	ctx, cancel := context.WithTimeout(peerContext,
+	ctx, cancel := context.WithTimeout(context.Background(),
 		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 
@@ -267,16 +256,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcReleaseDLock(
 	// register grpc client
 	clientRPCOutside := pb.NewRaftRPCOutsideClientClient(gc.conn)
 
-	// set release dlock timeout
-	addr, _, err := utils.GetLocalIP()
-	if err != nil {
-		return nil, err
-	}
-	peerContext := peer.NewContext(context.Background(), &peer.Peer{
-		Addr:  addr,
-		AuthInfo: nil,
-	})
-	ctx, cancel := context.WithTimeout(peerContext,
+	ctx, cancel := context.WithTimeout(context.Background(),
 		time.Duration(gc.timeout) * time.Millisecond)
 	defer cancel()
 

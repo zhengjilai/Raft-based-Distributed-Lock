@@ -7,8 +7,8 @@ message ClientAcquireDLockRequest {
     // the name of lockName
     string lockName = 1;
 
-    // the suffix for clientId (ip+suffix)
-    string clientIDSuffix = 2;
+    // clientId
+    string clientID = 2;
 
     // the expire of dlock, format: ns
     int64 expire = 3;
@@ -62,8 +62,8 @@ message ClientReleaseDLockRequest {
     // the name of dlock
     string lockName  = 1;
 
-    // the suffix for clientId (ip+suffix)
-    string clientIDSuffix = 2;
+    // clientId
+    string clientID = 2;
 
 }
 

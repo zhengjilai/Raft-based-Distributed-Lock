@@ -1,6 +1,7 @@
 package client
 
-import (
+import
+(
 	"fmt"
 	"github.com/dlock_raft/node"
 	pb "github.com/dlock_raft/protobuf"
@@ -12,13 +13,26 @@ type DLockRaftClientAPI struct {
 
 	// the map from address to
 	CliSrvHandler map[string]*node.GrpcCliSrvClientImpl
-	// client ID suffix
-	ClientIdSuffix string
+	// client ID, UUID, generated randomly
+	ClientId string
 }
 
-func NewDLockRaftClientAPI(clientIdSuffex string) *DLockRaftClientAPI {
+func NewDLockRaftClientAPI(clientIdPreset ...string) *DLockRaftClientAPI {
+
+	// set default clientId, or use preset one
+	var clientId string
+	if len(clientIdPreset) > 0 || len(clientIdPreset[0]) != 27 {
+		clientId = clientIdPreset[0]
+		fmt.Printf("Preset Client Id (UUID) %s succeeded.\n", clientId)
+	} else {
+		clientId = utils.GenKsuid()
+		fmt.Printf("Generate random Client Id (UUID) %s succeeded.\n", clientId)
+	}
 	cliSrcHandler := make(map[string]*node.GrpcCliSrvClientImpl)
-	return &DLockRaftClientAPI{CliSrvHandler: cliSrcHandler, ClientIdSuffix: clientIdSuffex}
+	return &DLockRaftClientAPI{
+		CliSrvHandler: cliSrcHandler,
+		ClientId: clientId,
+	}
 }
 
 // Warning!!!!!! timeout unit: millisecond
@@ -42,8 +56,6 @@ func (drc *DLockRaftClientAPI) preprocessConnections(address string, timeoutOpti
 		return
 	}
 }
-
-
 
 func (drc *DLockRaftClientAPI) PutState(address string, key string, value []byte, timeoutOptional ...uint32) bool {
 
@@ -193,8 +205,10 @@ func (drc *DLockRaftClientAPI) GetState(address string, key string, timeoutOptio
 	}
 }
 
+// API for Acquire DLock, may block before timeout if the lock is not obtained
 // expire and timeout should both use ms as unit
-func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, expire int64, timeoutOptional ...uint32) bool {
+func (drc *DLockRaftClientAPI) AcquireDLock(address string,
+	lockName string, expire int64, timeoutOptional ...uint32) bool {
 
 	// set default timeout
 	timeout := uint32(2500)
@@ -208,7 +222,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, exp
 	// note that expire should have format ns, so we multiply it by 10^6
 	request := &pb.ClientAcquireDLockRequest{
 		LockName:       lockName,
-		ClientIDSuffix: drc.ClientIdSuffix,
+		ClientID: 		drc.ClientId,
 		Expire:         expire * 1000000,
 		Sequence:       0,
 	}
@@ -238,7 +252,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, exp
 				time.Duration(int64(timeout)) * time.Millisecond)
 			return false
 		}
-	} else if response.Pending == false || response.Sequence == 0{
+	} else if response.Pending == false || response.Sequence == 0 {
 		fmt.Printf("Acquire DLock %s succeeded, request %+v.\n",
 			address, request)
 		startQueryTag = true
@@ -255,7 +269,6 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, exp
 	timer := time.NewTimer(time.Duration(timeout) * time.Millisecond)
 	defer timer.Stop()
 	requestQuery := &pb.ClientQueryDLockRequest{LockName: lockName}
-	_, localIp, err := utils.GetLocalIP()
 	if err != nil {
 		fmt.Printf("Getting Local ip for Acquire DLock from %s fails, request %+v.\n",
 			address, request)
@@ -265,13 +278,13 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, exp
 	for {
 		select {
 		case <- tickerQuery.C:
-			// query whether the
+			// judge whether the query process has started up
 			if startQueryTag {
 				responseQuery, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(requestQuery)
 				if err != nil {
 					fmt.Printf("Error happens when checking state of Acquire DLock, %s\n", err)
 					return false
-				} else if responseQuery.Owner == utils.FuseClientIp(localIp, drc.ClientIdSuffix){
+				} else if responseQuery.Owner == drc.ClientId{
 					fmt.Printf("Acquireing DLock %s confirms success after checking state of Acquire DLock, " +
 						"timestamp: %d ms, expire: %d ms\n",
 						request.LockName, responseQuery.Timestamp/1000000, responseQuery.Expire/1000000)
@@ -308,3 +321,104 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string, lockName string, exp
 	}
 }
 
+// DLockQueryInfo is used for indicating the basic info of an DLock
+// Note that it is written basically for decoupling protobuf response with client-side objects
+type DLockQueryInfo struct {
+	// current owner, "" for nobody (not acquired yet)
+	Owner string
+	// dlock nonce
+	Nonce uint32
+	// the timestamp when dlock last refreshed, format: ns
+	Timestamp int64
+	// the current dlock expire, format: ns
+	Expire int64
+	// the pending acquirement number
+	// return a non-negative number only when client ask the leader
+	PendingNum int32
+}
+
+// expire and timeout should both use ms as unit
+// API for Query DLock, never block if the lock is not obtained
+func (drc *DLockRaftClientAPI) QueryDLock(
+	address string, lockName string, timeoutOptional ...uint32) (*DLockQueryInfo, bool) {
+
+	// set default timeout
+	timeout := uint32(2500)
+	if len(timeoutOptional) > 0 {
+		timeout = timeoutOptional[0]
+	}
+
+	// preprocess connections
+	drc.preprocessConnections(address, timeout)
+	// construct the request
+	request := &pb.ClientQueryDLockRequest{
+		LockName: lockName,
+	}
+
+	// grpc request
+	response, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(request)
+	// error happens in server
+	if err != nil {
+		fmt.Printf("Error happens when invoking Query DLock, %s\n", err)
+		return nil, false
+	}
+	responseLocal := &DLockQueryInfo{
+		Owner: response.Owner,
+		Nonce: response.Nonce,
+		Timestamp: response.Timestamp,
+		Expire: response.Expire,
+		PendingNum: response.PendingNum,
+	}
+	return responseLocal, true
+}
+
+// API for Release DLock, never block if something delay happened at server side
+func (drc *DLockRaftClientAPI) ReleaseDLock(
+	address string, lockName string, timeoutOptional ...uint32) bool {
+
+	// set default timeout
+	timeout := uint32(2500)
+	if len(timeoutOptional) > 0 {
+		timeout = timeoutOptional[0]
+	}
+
+	// preprocess connections
+	drc.preprocessConnections(address, timeout)
+	// construct the request
+	// note that expire should have format ns, so we multiply it by 10^6
+	request := &pb.ClientReleaseDLockRequest{
+		LockName:       lockName,
+		ClientID: 		drc.ClientId,
+	}
+
+	// start time
+	timeStart := time.Now()
+	// grpc request
+	response, err := drc.CliSrvHandler[address].SendGrpcReleaseDLock(request)
+	// error happens in server
+	if err != nil {
+		fmt.Printf("Error happens when invoking Acquire DLock, %s\n", err)
+		return false
+	}
+
+	// redirected? succeeded? pending? other bugs?
+	if response.CurrentLeader != ""{
+		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s \n",
+			address, request, response.CurrentLeader)
+		timeExperienced := time.Since(timeStart)
+		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {
+			return drc.ReleaseDLock(response.CurrentLeader, lockName,
+				timeout - uint32(timeExperienced.Nanoseconds()/1000000))
+		} else {
+			fmt.Printf("Timeout for acquire DLock, timeout after %s",
+				time.Duration(int64(timeout)) * time.Millisecond)
+			return false
+		}
+	} else if response.Released == true {
+		fmt.Printf("DLock %s has been released, meaning you does not possess it now.", lockName)
+		return true
+	} else {
+		fmt.Printf("Releasing DLock %s failed, meaning nothing have been done for releasing dlock.", lockName)
+		return false
+	}
+}

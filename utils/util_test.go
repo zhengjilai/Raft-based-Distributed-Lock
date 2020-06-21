@@ -36,3 +36,10 @@ func TestConcurrency(t *testing.T){
 	fmt.Println(*collectedVote)
 	fmt.Println(voteMap)
 }
+
+func TestGetUUID(t *testing.T){
+	testLen := 100
+	for i := 0; i < testLen; i++ {
+		fmt.Printf("Seq %d, UUID %s\n", i, GenKsuid())
+	}
+}
