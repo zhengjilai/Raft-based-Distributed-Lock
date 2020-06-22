@@ -147,10 +147,8 @@ func (c *CommandDLock) SetAsDLockInfo(lockInfo *LockInfo) error {
 		return err
 	}
 
-	// construct the command object
-	commandDLock := new(CommandDLock)
 	// note that ""DLock" is predetermined for CommandDLock
-	commandDLock.SetCommandContent(encodedLockInfo)
+	c.SetCommandContent(encodedLockInfo)
 
 	return nil
 }

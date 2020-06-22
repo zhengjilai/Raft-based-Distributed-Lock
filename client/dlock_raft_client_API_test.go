@@ -84,7 +84,7 @@ func TestNormalDLockRelease(t *testing.T)  {
 	var group sync.WaitGroup
 	// totally 2 acquirers
 	group.Add(2)
-	lockName := "DLockTestExpire"
+	lockName := "DLockReleaseTest"
 	indexAccumulate := 0
 
 	// dlock client acquirer 1
@@ -201,12 +201,13 @@ func TestNormalDLockExpire(t *testing.T)  {
 	var group sync.WaitGroup
 	// totally 2 acquirers
 	group.Add(2)
-	lockName := "DLockTestExpire"
+	lockName := "DLockExpireTest"
 	indexAccumulate := 0
 
 	// dlock client acquirer 1
 	go func() {
 		dlockClient1 := NewDLockRaftClientAPI()
+		t.Log(fmt.Printf("Client 1 has clientId as %s.\n", dlockClient1.ClientId))
 
 		// client 1 acquire dlock at time 0s
 		dlockExpire := int64(4000)
@@ -220,7 +221,7 @@ func TestNormalDLockExpire(t *testing.T)  {
 			return
 		}
 
-		// wait for 4 seconds
+		// wait for 8 seconds
 		time.Sleep(8000 * time.Millisecond)
 
 		// client 1 release dlock at time 8s
@@ -254,6 +255,7 @@ func TestNormalDLockExpire(t *testing.T)  {
 	go func() {
 		// start at time 0s
 		dlockClient2 := NewDLockRaftClientAPI()
+		t.Log(fmt.Printf("Client 2 has clientId as %s.\n", dlockClient2.ClientId))
 
 		// wait for 2 seconds
 		time.Sleep(2000 * time.Millisecond)
