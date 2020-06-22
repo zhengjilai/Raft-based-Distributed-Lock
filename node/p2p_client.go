@@ -47,10 +47,10 @@ func (gc *GrpcP2PClientImpl) GetConnectionState() connectivity.State {
 
 func (gc *GrpcP2PClientImpl) IsAvailable() bool {
 	if gc.conn != nil {
-		gc.NodeRef.NodeLogger.Infof("Current TCP state is %s", gc.conn.GetState())
+		gc.NodeRef.NodeLogger.Debugf("Current TCP state is %s", gc.conn.GetState())
 		return gc.conn.GetState() == connectivity.Ready
 	}
-	gc.NodeRef.NodeLogger.Infof("P2P Connection with %s has not been initialized.", gc.peerAddress)
+	gc.NodeRef.NodeLogger.Debugf("P2P Connection with %s has not been initialized.", gc.peerAddress)
 	return false
 }
 
@@ -93,7 +93,7 @@ func (gc *GrpcP2PClientImpl) SendGrpcAppendEntries(request *pb.AppendEntriesRequ
 	defer cancel()
 
 	// handle response of AppendEntry
-	gc.NodeRef.NodeLogger.Infof("Begin to send AppendEntry %+v to %s.", request, gc.peerAddress)
+	gc.NodeRef.NodeLogger.Debugf("Begin to send AppendEntry %+v to %s.", request, gc.peerAddress)
 	response, err := clientAppendEntry.AppendEntriesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
@@ -125,7 +125,7 @@ func (gc *GrpcP2PClientImpl) SendGrpcCandidateVotes(request *pb.CandidateVotesRe
 	defer cancel()
 
 	// handle response
-	gc.NodeRef.NodeLogger.Infof("Begin to send CandidateVote %+v to %s.", request, gc.peerAddress)
+	gc.NodeRef.NodeLogger.Debugf("Begin to send CandidateVote %+v to %s.", request, gc.peerAddress)
 	response, err := clientCandidateVote.CandidateVotesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)
@@ -157,7 +157,7 @@ func (gc *GrpcP2PClientImpl) SendGrpcRecoverEntries(request *pb.RecoverEntriesRe
 	defer cancel()
 
 	// handle response
-	gc.NodeRef.NodeLogger.Infof("Begin to sen RecoverEntries %+v to %s.", request, gc.peerAddress)
+	gc.NodeRef.NodeLogger.Debugf("Begin to sen RecoverEntries %+v to %s.", request, gc.peerAddress)
 	response, err := clientRecoverEntries.RecoverEntriesService(ctx, request)
 	if err != nil {
 		gc.NodeRef.NodeLogger.Errorf("Reconnect TCP fails %s.", err)

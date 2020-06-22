@@ -7,7 +7,7 @@ import (
 
 func TestNodeConfig(t *testing.T){
 	// read node config from yaml file
-	nodeConfigInstance, err := NewNodeConfigFromYaml("../" + ConfigYamlFilePath)
+	nodeConfigInstance, err := NewNodeConfigFromYaml("../" + DefaultConfigYamlFilePath)
 	if err != nil{
 		t.Error(fmt.Sprintf("Error happens when creating a new node config from yaml: %s", err))
 	}

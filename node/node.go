@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	// the fixed path for yaml format config file
-	ConfigYamlFilePath = "config/config.yaml"
+	// the default path for yaml format config file
+	// often used for docker deployment
+	DefaultConfigYamlFilePath = "config/config.yaml"
 )
 
 var ReadConfigYamlError = errors.New("dlock_raft.init_node: Read yaml config error")
@@ -74,10 +75,18 @@ type NodeOperators interface {
 
 }
 
-func NewNode() (*Node, error){
+// the dlock peer node initialization function
+// your can revise config file path with an optional parameter
+func NewNode(configFile ...string) (*Node, error){
 
 	// read node config from yaml file
-	nodeConfigInstance, err := NewNodeConfigFromYaml(ConfigYamlFilePath)
+	var actualConfigFilePath string
+	if len(configFile) >= 1 && len(configFile[0]) != 0 {
+		actualConfigFilePath = configFile[0]
+	} else {
+		actualConfigFilePath = DefaultConfigYamlFilePath
+	}
+	nodeConfigInstance, err := NewNodeConfigFromYaml(actualConfigFilePath)
 	if err != nil {
 		return nil, ReadConfigYamlError
 	}
@@ -94,7 +103,10 @@ func NewNode() (*Node, error){
 	if err3 != nil {
 		return nil, ConstructLoggerError
 	}
+	// set log level as DEBUG
+	nodeLoggerInstance.SetLogLevel(utils.DebugLevel)
 	nodeLoggerInstance.Info("Reconstruct Node Logger succeeded.")
+
 	// the initial context for node
 	nodeContextInstance, err4 := NewStartNodeContext(nodeConfigInstance)
 	if err4 != nil {
@@ -391,7 +403,7 @@ func (n *Node) BecomeLeader() {
 	n.DlockInterchangeInstance = NewDlockInterchange(n)
 	err := n.DlockInterchangeInstance.InitFromDLockStateMap(time.Now().UnixNano())
 	if err != nil {
-		n.NodeLogger.Errorf("Init DLock Interchange fails, error %s.\n")
+		n.NodeLogger.Errorf("Init DLock Interchange fails, error %s.", err)
 	}
 	// start a new goroutine to monitor the DLocks
 	go n.DlockInterchangeInstance.ReleaseExpiredDLockPeriodically()

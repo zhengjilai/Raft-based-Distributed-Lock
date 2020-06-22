@@ -9,7 +9,6 @@ import (
 	"github.com/dlock_raft/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 	"net"
 	"strings"
 	"time"
@@ -33,10 +32,11 @@ var CliSrvQueryDLockInternalError = errors.New("dlock_raft.cli_server: " +
 	"something wrong happens inside the server when querying dLock info")
 var CliSrvReleaseDLockInternalError = errors.New("dlock_raft.cli_server: " +
 	"something wrong happens inside the server when releasing dLock")
-var CliSrvQueryEmptyDLockError = errors.New("dlock_raft.cli_server: " +
-	"QueryDLock requests the information of an non-existing dLock")
-var CliSrvGetClientAddressError = errors.New("dlock_raft.cli_server: " +
-	"getting client address error")
+var CliSrvReleaseNonExistingDLockError = errors.New("dlock_raft.cli_server: " +
+	"delState requests an non-existing dlock for releasing")
+var CliSrvQueryNonExistingDLockError = errors.New("dlock_raft.cli_server: " +
+	"getState requests an non-existing dlock for querying")
+
 
 type GRPCCliSrvServerImpl struct {
 
@@ -336,7 +336,7 @@ func (gs *GRPCCliSrvServerImpl) QueryDLockService(ctx context.Context,
 	// update response from statemap state
 	state, err := gs.NodeRef.StateMapDLock.QuerySpecificState(request.LockName)
 	if err == storage.InMemoryStateMapDLockFetchError {
-		return nil, CliSrvQueryEmptyDLockError
+		return nil, CliSrvQueryNonExistingDLockError
 	} else if err != nil {
 		return nil, CliSrvQueryDLockInternalError
 	}
@@ -389,12 +389,22 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 		clientId := request.ClientID
 		timestamp := time.Now().UnixNano()
 		releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
-		if err != nil || releaseInfo == ErrorReserve{
+		if err != nil || releaseInfo == ErrorReserve {
 			return nil, CliSrvReleaseDLockInternalError
 		}
-		if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased || releaseInfo == TriggerReleaseSuccess {
+		// process four different situations
+		if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased {
 			response.Released = true
-			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), %+v.", releaseInfo, response)
+			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
+				"DLock %s does not exist or has already been released, response: %+v.",
+				releaseInfo, request.LockName, response)
+			gs.NodeRef.mutex.Unlock()
+			return response, CliSrvReleaseNonExistingDLockError
+		} else if releaseInfo == TriggerReleaseSuccess {
+			response.Released = true
+			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
+				"LogEntry for releasing DLock %s has been submitted (however may not be committed) ,response %+v.",
+				releaseInfo, request.LockName, response)
 			gs.NodeRef.mutex.Unlock()
 			return response, nil
 		} else {
@@ -419,10 +429,18 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 						gs.NodeRef.mutex.Unlock()
 						return nil, CliSrvReleaseDLockInternalError
 					}
-					if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased || releaseInfo == TriggerReleaseSuccess {
+					if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased {
 						response.Released = true
-						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), %+v.",
-							releaseInfo, response)
+						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
+							"DLock %s does not exist or has already been released, response: %+v.",
+							releaseInfo, request.LockName, response)
+						gs.NodeRef.mutex.Unlock()
+						return response, CliSrvReleaseNonExistingDLockError
+					} else if releaseInfo == TriggerReleaseSuccess {
+						response.Released = true
+						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d),"+
+							"LogEntry for releasing DLock %s has been submitted (however may not be committed) ,response %+v.",
+							releaseInfo, request.LockName, response)
 						gs.NodeRef.mutex.Unlock()
 						return response, nil
 					}
@@ -433,20 +451,6 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 			}
 		}
 	}
-}
-
-// get ip address (string) from context
-// ip address is often used to get ClientId (owner)
-func (gs *GRPCCliSrvServerImpl) GetIPAddressFromContext(ctx context.Context) (string, error){
-	peerFromContext, ok := peer.FromContext(ctx)
-	if !ok || peerFromContext.Addr == nil {
-		return "", CliSrvGetClientAddressError
-	}
-	ip, _, err := net.SplitHostPort(peerFromContext.Addr.String())
-	if err != nil {
-		return "", CliSrvGetClientAddressError
-	}
-	return ip, nil
 }
 
 // start cli-srv grpc service

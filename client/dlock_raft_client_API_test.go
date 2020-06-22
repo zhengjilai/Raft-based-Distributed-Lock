@@ -9,29 +9,33 @@ import (
 	"time"
 )
 
+// the cli-srv server interface list
+// revise here for different environments
+// note that we will take turns to request to nodes in addressList
+var addressList = [...]string {
+	"0.0.0.0:24005",
+	"0.0.0.0:24006",
+	"0.0.0.0:24007",
+}
+
 func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 
 	var group sync.WaitGroup
 
 	timeout := uint32(2500)
 	dLockRaftClientAPI := NewDLockRaftClientAPI()
-	addressList := [...]string {
-		"0.0.0.0:24005",
-		"0.0.0.0:24006",
-		"0.0.0.0:24007",
-	}
 
 	// put state for 20 keys and 100 values
 	group.Add(100)
 	for i := 0 ; i < 100; i ++ {
 		go func(index int) {
 			time.Sleep(time.Duration(index * 5) * time.Millisecond)
-			success := dLockRaftClientAPI.PutState(addressList[index % 3],
+			success := dLockRaftClientAPI.PutState(addressList[index % len(addressList)],
 				strconv.Itoa(index % 20), []byte(strconv.Itoa(index)))
 			if success {
-				fmt.Printf("KVTest: PutState, Key %d succeeded.\n", index)
+				t.Log(fmt.Printf("KVTest: PutState, Key %d succeeded.\n", index))
 			} else {
-				fmt.Printf("KVTest: PutState, Key %d failed.\n", index)
+				t.Error(fmt.Printf("KVTest: PutState, Key %d failed.\n", index))
 			}
 			group.Done()
 		}(i)
@@ -43,11 +47,11 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 	for i := 15 ; i < 25; i ++ {
 		go func(index int) {
 			time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
-			success := dLockRaftClientAPI.DelState(addressList[index % 3], strconv.Itoa(index))
-			if success {
-				fmt.Printf("KVTest: DelState, Key %d succeeded.\n", index)
+			success := dLockRaftClientAPI.DelState(addressList[index % len(addressList)], strconv.Itoa(index))
+			if success && index <= 19{
+				t.Log(fmt.Printf("KVTest: DelState, Key %d succeeded.\n", index))
 			} else {
-				fmt.Printf("KVTest: DelState, Key %d failed.\n", index)
+				t.Log(fmt.Printf("KVTest: DelState, Key %d failed.\n", index))
 			}
 			group.Done()
 		}(i)
@@ -59,12 +63,12 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 	for i := 10; i < 25; i ++ {
 		go func(index int) {
 			time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
-			value := dLockRaftClientAPI.GetState(addressList[index % 3], strconv.Itoa(index), timeout)
+			value := dLockRaftClientAPI.GetState(addressList[index % len(addressList)], strconv.Itoa(index), timeout)
 			if value != nil {
 				digit, _ := strconv.Atoi(string(value))
-				fmt.Printf("KVTest: GetState, Key: %d, Value %d.\n", index, digit)
+				t.Log(fmt.Printf("KVTest: GetState, Key: %d, Value %d.\n", index, digit))
 			} else {
-				fmt.Printf("KVTest: GetState, Key: %d has no availble value.\n", index)
+				t.Log(fmt.Printf("KVTest: GetState, Key: %d has no availble value.\n", index))
 			}
 			group.Done()
 		}(i)
@@ -72,60 +76,221 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 	group.Wait()
 }
 
-func TestDLockRaftClientAPI_AcquireQueryReleaseDLock(t *testing.T) {
+
+func TestNormalDLockRelease(t *testing.T)  {
+
+	fmt.Println("Begin to test DLock normal release")
 
 	var group sync.WaitGroup
-	addressList := [...]string {
-		"0.0.0.0:24005",
-		"0.0.0.0:24006",
-		"0.0.0.0:24007",
-	}
-	// totally 3 acquirers
-	group.Add(3)
+	// totally 2 acquirers
+	group.Add(2)
+	lockName := "DLockTestExpire"
+	indexAccumulate := 0
 
-	// dlock acquirer 1
+	// dlock client acquirer 1
 	go func() {
 		dlockClient1 := NewDLockRaftClientAPI()
-		dlockExpire := int64(8000)
-		dlockClient1.AcquireDLock(addressList[0], "dlock1", dlockExpire)
-		dlockClient1.QueryDLock(addressList[1], "dlock1")
 
+		// client 1 acquire dlock at time 0s
+		dlockExpire := int64(6000)
+		ok := dlockClient1.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 1 acquire DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 acquire DLock %s failed.\n", lockName))
+			group.Done()
+			return
+		}
+
+		// wait for 4 seconds
 		time.Sleep(4000 * time.Millisecond)
 
-		dlockClient1.QueryDLock(addressList[2], "dlock1")
-		dlockClient1.QueryDLock(addressList[1], "dlock2")
-		dlockClient1.ReleaseDLock(addressList[2], "dlock1")
+		// client 1 release dlock at time 4s, should succeed
+		dlockInfo1, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s before release, response %+v.\n",
+			lockName, dlockInfo1))
+		// client 1 release dlock, should succeed
+		ok = dlockClient1.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 1 release DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 release DLock %s failed.\n", lockName))
+			group.Done()
+			return
+		}
+		// test dlock1 state, may have not changed for network latency
+		dlockInfo2, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s immediately after release, response %+v.\n",
+			lockName, dlockInfo2))
+
+		// client 1 query dlock at time 4.5s
+		time.Sleep(500 * time.Millisecond)
+		// test dlock1 state, must have changed for network latency
+		dlockInfo3, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s a while after release, response %+v.\n",
+			lockName, dlockInfo3))
 
 		group.Done()
 	}()
 
-	// dlock acquirer 2
+	// dlock client 2
 	go func() {
+		// start at time 0s
 		dlockClient2 := NewDLockRaftClientAPI()
-		dlockExpire := int64(2000)
-		dlockClient2.AcquireDLock(addressList[1], "dlock1", dlockExpire)
 
+		// wait for 2 seconds
+		time.Sleep(2000 * time.Millisecond)
+
+		// begin to acquire DLock at time 2s
+		dlockExpire := int64(2000)
+		// acquire dlock should fail, since it has been acquired by client 1
+		// may block about 1 second
+		ok := dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)],
+			lockName, dlockExpire, 1000)
+		indexAccumulate ++
+		if !ok {
+			t.Log(fmt.Printf("DLockTest: Client 2 acquire DLock %s failed as expected.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 acquire DLock %s succeeded unexpectedly.\n", lockName))
+			group.Done()
+			return
+		}
+
+		// wait for 4 seconds
 		time.Sleep(4000 * time.Millisecond)
 
-		dlockClient2.QueryDLock(addressList[0], "dlock1")
-		dlockClient2.QueryDLock(addressList[1], "dlock2")
-		dlockClient2.ReleaseDLock(addressList[2], "dlock1")
+		// now Dlock should have been released by client 1, query before acquiring it
+		dlockInfo1, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, response %+v.\n",
+			lockName, dlockInfo1))
+		// client 2 try to acquire dlock at about time 7s
+		ok = dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 2 acquire DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 acquire DLock %s failed.\n", lockName))
+			group.Done()
+			return
+		}
+		// release dlock immediately after acquiring it, should succeed
+		ok = dlockClient2.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 2 release DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 release DLock %s failed.\n", lockName))
+		}
+		group.Done()
+	}()
+
+	group.Wait()
+}
+
+
+func TestNormalDLockExpire(t *testing.T)  {
+
+	fmt.Println("Begin to test DLock normal release")
+
+	var group sync.WaitGroup
+	// totally 2 acquirers
+	group.Add(2)
+	lockName := "DLockTestExpire"
+	indexAccumulate := 0
+
+	// dlock client acquirer 1
+	go func() {
+		dlockClient1 := NewDLockRaftClientAPI()
+
+		// client 1 acquire dlock at time 0s
+		dlockExpire := int64(4000)
+		ok := dlockClient1.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 1 acquire DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 acquire DLock %s failed.\n", lockName))
+			group.Done()
+			return
+		}
+
+		// wait for 4 seconds
+		time.Sleep(8000 * time.Millisecond)
+
+		// client 1 release dlock at time 8s
+		dlockInfo1, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s before release, response %+v.\n",
+			lockName, dlockInfo1))
+		// client 1 release dlock at time 8s, should fail
+		ok = dlockClient1.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		if !ok {
+			t.Log(fmt.Printf("DLockTest: Client 1 release DLock %s failed as expected.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 release DLock %s succeeded unexpectedly.\n", lockName))
+			group.Done()
+			return
+		}
+
+		// client 1 query dlock at time 8.5s
+		time.Sleep(500 * time.Millisecond)
+		// test dlock1 state, must have changed for network latency
+		dlockInfo2, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s a while after release failed, response %+v.\n",
+			lockName, dlockInfo2))
 
 		group.Done()
 	}()
 
-	// dlock acquirer 3
+	// dlock client 2
 	go func() {
-		dlockClient3 := NewDLockRaftClientAPI()
-		dlockExpire := int64(4000)
-		dlockClient3.AcquireDLock(addressList[2], "dlock1", dlockExpire)
+		// start at time 0s
+		dlockClient2 := NewDLockRaftClientAPI()
 
-		time.Sleep(4000 * time.Millisecond)
+		// wait for 2 seconds
+		time.Sleep(2000 * time.Millisecond)
 
-		dlockClient3.QueryDLock(addressList[2], "dlock1")
-		dlockClient3.QueryDLock(addressList[1], "dlock2")
-		dlockClient3.ReleaseDLock(addressList[2], "dlock1")
+		// begin to acquire DLock at time 2s
+		dlockExpire := int64(8000)
+		// acquire dlock should fail, since it has been acquired by client 1
+		// may block about 1 second
+		ok := dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)],
+			lockName, dlockExpire, 1000)
+		indexAccumulate ++
+		if !ok {
+			t.Log(fmt.Printf("DLockTest: Client 2 acquire DLock %s failed as expected.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 acquire DLock %s succeeded unexpectedly.\n", lockName))
+			group.Done()
+			return
+		}
 
+		// wait for another 3 seconds
+		time.Sleep(3000 * time.Millisecond)
+
+		// now Dlock should have been released by client 1, query before acquiring it
+		dlockInfo1, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
+		indexAccumulate ++
+		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, response %+v.\n",
+			lockName, dlockInfo1))
+		// client 2 try to acquire dlock at about time 6s, should succeed
+		ok = dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client 2 acquire DLock %s succeeded.\n", lockName))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 acquire DLock %s failed.\n", lockName))
+			group.Done()
+			return
+		}
 		group.Done()
 	}()
 

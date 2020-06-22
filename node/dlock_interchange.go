@@ -392,7 +392,7 @@ func (di *DlockInterchange) RefreshAcquirementBySequence(lockName string, sequen
 	} else if err != nil {
 		return false, err
 	} else {
-		di.NodeRef.NodeLogger.Debugf("Refresh acquirement for DLock %s by sequence succeeded.", lockName, sequence)
+		di.NodeRef.NodeLogger.Debugf("Refresh acquirement for DLock %s by sequence %d succeeded.", lockName, sequence)
 		return true, nil
 	}
 }
