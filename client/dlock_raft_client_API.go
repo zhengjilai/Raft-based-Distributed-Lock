@@ -397,13 +397,13 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 	response, err := drc.CliSrvHandler[address].SendGrpcReleaseDLock(request)
 	// error happens in server
 	if err != nil {
-		fmt.Printf("Error happens when invoking Acquire DLock, %s\n", err)
+		fmt.Printf("Error happens when invoking Release DLock, %s\n", err)
 		return false
 	}
 
 	// redirected? succeeded? pending? other bugs?
 	if response.CurrentLeader != ""{
-		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s.\n",
+		fmt.Printf("Release DLock %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
 		timeExperienced := time.Since(timeStart)
 		if time.Duration(int64(timeout)) * time.Millisecond > timeExperienced {

@@ -88,6 +88,7 @@ func (di *DlockInterchange) refreshOrInitDLocks(timestamp int64) error {
 		if !ok2 {
 			di.PendingAcquire[lockStateDecoded.LockName] = NewDlockVolatileAcquirement(
 				lockStateDecoded.LockName, lockStateDecoded.LockNonce)
+			pendingAcq = di.PendingAcquire[lockStateDecoded.LockName]
 		}
 		err = pendingAcq.AbandonExpiredAcquirement(timestamp)
 		if err != nil {

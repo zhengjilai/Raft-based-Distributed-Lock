@@ -29,9 +29,9 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 			success := dLockRaftClientAPI.PutState(addressList[index % 3],
 				strconv.Itoa(index % 20), []byte(strconv.Itoa(index)))
 			if success {
-				fmt.Printf("KVTest: PetState, Key %d succeeded.\n", index)
+				fmt.Printf("KVTest: PutState, Key %d succeeded.\n", index)
 			} else {
-				fmt.Printf("KVTest: PetState, Key %d failed.\n", index)
+				fmt.Printf("KVTest: PutState, Key %d failed.\n", index)
 			}
 			group.Done()
 		}(i)

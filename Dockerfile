@@ -24,7 +24,7 @@ RUN mkdir -p /srv/gopath/src/github.com/golang
 RUN git clone https://github.com/golang/protobuf.git /srv/gopath/src/github.com/golang/protobuf
 
 RUN mkdir -p /srv/gopath/src/github.com/segmentio
-RUN git clone https://github.com:segmentio/ksuid.git /srv/gopath/src/github.com/segmentio/ksuid
+RUN git clone https://github.com/segmentio/ksuid.git /srv/gopath/src/github.com/segmentio/ksuid
 
 # copy own codes into container
 COPY ./protobuf /srv/gopath/src/github.com/dlock_raft/protobuf

@@ -206,7 +206,7 @@ func (sm *StateMapMemoryDLock) UpdateStateFromLogEntry(entry *LogEntry) error {
 
 	// query the current state
 	currentDlockState, err2 := sm.QuerySpecificState(dlockInfo.LockName)
-	if err2 != InMemoryStateMapKVFetchError && err2 != nil {
+	if err2 != InMemoryStateMapDLockFetchError && err2 != nil {
 		return err2
 	}
 	// if dlock exists but current nonce in LogEntry is not old nonce+1, update Dlock should fail
