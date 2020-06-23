@@ -253,7 +253,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 			return false
 		}
 	} else if response.Pending == false || response.Sequence == 0 {
-		fmt.Printf("Acquire DLock %s succeeded, request %+v.\n",
+		fmt.Printf("Acquire DLock %s succeeded (at least not pending), begin to query state, request %+v.\n",
 			address, request)
 		startQueryTag = true
 	} else if response.Sequence != 0 {
@@ -284,7 +284,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				if err != nil {
 					fmt.Printf("Error happens when checking state of Acquire DLock, %s.\n", err)
 					return false
-				} else if responseQuery.Owner == drc.ClientId{
+				} else if responseQuery.Owner == drc.ClientId && responseQuery.Expire == request.Expire{
 					fmt.Printf("Acquireing DLock %s confirms success after checking state of Acquire DLock, " +
 						"timestamp: %d ms, expire: %d ms\n",
 						request.LockName, responseQuery.Timestamp/1000000, responseQuery.Expire/1000000)
@@ -308,7 +308,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					return false
 				}
 				if response.Pending == false || response.Sequence == 0 {
-					fmt.Printf("Acquire DLock %s succeeded, request %+v.\n",
+					fmt.Printf("Acquire DLock %s is not pending now, request %+v.\n",
 						address, request)
 					startQueryTag = true
 				}

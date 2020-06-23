@@ -36,7 +36,8 @@ var CliSrvReleaseNonExistingDLockError = errors.New("dlock_raft.cli_server: " +
 	"delState requests an non-existing dlock for releasing")
 var CliSrvQueryNonExistingDLockError = errors.New("dlock_raft.cli_server: " +
 	"getState requests an non-existing dlock for querying")
-
+var CliSrvRefreshDLockAcquirementBySequenceError = errors.New("dlock_raft.cli_server: " +
+	"something wrong (e.g. expired sequence number) happens when refreshing an acquirement")
 
 type GRPCCliSrvServerImpl struct {
 
@@ -270,20 +271,28 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 
 		if request.Sequence != 0 {
 			// request.sequence != 0 means the client wants to refresh a dLock acquirement by its sequence
-			refreshSuccess, err := gs.NodeRef.DlockInterchangeInstance.RefreshAcquirementBySequence(request.LockName, request.Sequence, timestamp)
-			if err != nil {
-				gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s fails, error %s",
+			refreshSuccess, err := gs.NodeRef.DlockInterchangeInstance.RefreshAcquirementBySequence(
+				request.LockName, request.Sequence, timestamp)
+			// if sequence error happens, ask the client to check whether the dlock has been in statemap
+			if err == VolatileAcquirementInfoFetchingError || err == VolatileAcquirementInvalidSequenceError{
+				response.Pending = false
+				response.Sequence = request.Sequence
+				gs.NodeRef.NodeLogger.Debugf("Acquirement (sequence %d) of dLock %s is not pending now, " +
+					"client may begin to query state, error: %s", request.Sequence, request.LockName, err)
+				return response, nil
+			} else if err != nil {
+				gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s fails, error: %s",
 					request.LockName, err)
-				return nil, CliSrvAcquireDLockInternalError
+				return nil, CliSrvRefreshDLockAcquirementBySequenceError
 			} else {
 				response.Pending = refreshSuccess
 				if refreshSuccess {
 					response.Sequence = request.Sequence
-					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d succeeded, response %+v",
+					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d succeeded, response: %+v",
 						request.LockName, request.Sequence, response)
 				} else {
 					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d " +
-						"failed, since the acquirement does not exist or has already expired, response %+v",
+						"failed, since the acquirement does not exist or has already expired, response: %+v",
 						request.LockName, request.Sequence, response)
 				}
 				return response, nil
