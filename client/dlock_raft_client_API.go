@@ -254,8 +254,8 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 			return false
 		}
 	} else if response.Pending == false || response.Sequence == 0 {
-		fmt.Printf("Acquire DLock %s succeeded (at least not pending), begin to query state, request %+v.\n",
-			address, request)
+		fmt.Printf("Acquire DLock %s succeeded (at least not pending), begin to query state, response %+v.\n",
+			address, response)
 		startQueryTag = true
 		recordedNonce = response.Nonce
 	} else if response.Sequence != 0 {
@@ -281,7 +281,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				if err != nil {
 					fmt.Printf("Error happens when checking state of Acquire DLock, %s.\n", err)
 					return false
-				} else if responseQuery.Nonce > recordedNonce {
+				} else if responseQuery.Nonce >= recordedNonce {
 					// this "for" statement can exit
 					// only when we found that the current LogState matches the recorded Nonce
 					fmt.Printf("Acquiring DLock %s confirms success after checking state of Acquire DLock, " +
@@ -291,12 +291,8 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					return true
 				}
 				// output the state of pending list, namely how many clients are waiting
-				if responseQuery.PendingNum > 0 {
-					fmt.Printf("Acquire DLock %s is still pending, pending acquirement number %d.\n",
-						request.LockName, responseQuery.PendingNum)
-				} else {
-					fmt.Printf("Acquire DLock %s is still pending.\n", request.LockName)
-				}
+				fmt.Printf("Acquire DLock %s is still pending, query response : %+v\n",
+					request.LockName, responseQuery)
 			}
 		case <- tickerRefresh.C:
 			if !startQueryTag {
@@ -309,8 +305,8 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					return false
 				}
 				if response.Pending == false || response.Sequence == 0 {
-					fmt.Printf("Acquire DLock %s is not pending now, request %+v.\n",
-						address, request)
+					fmt.Printf("Acquire DLock %s is not pending now, response %+v.\n",
+						address, response)
 					startQueryTag = true
 					recordedNonce = response.Nonce
 				}
@@ -420,8 +416,8 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 			return false
 		}
 	} else if response.Released == true {
-		fmt.Printf("Release DLock %s succeeded (but may not committed), begin to query state, request %+v.\n",
-			address, request)
+		fmt.Printf("Release DLock %s succeeded (but may not committed), begin to query state, response %+v.\n",
+			address, response)
 		startQueryTag = true
 		recordedNonce = response.Nonce
 	} else {
@@ -444,7 +440,7 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 				if err != nil {
 					fmt.Printf("Error happens when checking state of Release DLock, %s.\n", err)
 					return false
-				} else if responseQuery.Nonce > recordedNonce {
+				} else if responseQuery.Nonce >= recordedNonce {
 					// this "for" statement can exit
 					// only when we found that the current LogState matches the recorded Nonce
 					fmt.Printf("Release DLock %s confirms success after checking state of Release DLock, " +

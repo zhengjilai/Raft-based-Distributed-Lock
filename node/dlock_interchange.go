@@ -124,8 +124,10 @@ func (di *DlockInterchange) scanDLockStateMap(timestamp int64) error {
 				// append current entry
 				logEntries = append(logEntries, currentLogEntry)
 				appendNumber += 1
-				di.NodeRef.NodeLogger.Debugf("Begin to release expired dlock %s in statemap, nonce %d, original owner %s, term %d",
-					lockStateDecoded.LockName, lockStateDecoded.LockNonce, lockStateDecoded.Owner, di.LeaderTerm)
+				di.NodeRef.NodeLogger.Debugf("Begin to release expired dlock %s in statemap, " +
+					"current nonce %d, original owner %s, term %d, index %d",
+					lockStateDecoded.LockName, lockStateDecoded.LockNonce, lockStateDecoded.Owner,
+					di.LeaderTerm, di.NodeRef.LogEntryInMemory.MaximumIndex() + appendNumber)
 			}
 
 		}
@@ -145,10 +147,12 @@ func (di *DlockInterchange) scanDLockStateMap(timestamp int64) error {
 		// don't forget to increment lastAppendedNonce
 		di.PendingAcquire[currentDLockInfo.LockName].LastAppendedNonce += 1
 	}
-	di.NodeRef.NodeLogger.Debugf("Expired dlocks are released in term %d, totally %d",
+	di.NodeRef.NodeLogger.Debugf("Releasing Expired dlock is triggered in term %d, totally %d",
 		di.LeaderTerm, len(logEntries))
-	// trigger appendEntry
-	di.NodeRef.NodeContextInstance.TriggerAEChannel()
+	// trigger appendEntry if at least 1 LogEntry is appended
+	if len(logEntries) != 0 {
+		di.NodeRef.NodeContextInstance.TriggerAEChannel()
+	}
 	return nil
 }
 

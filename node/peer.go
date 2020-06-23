@@ -49,7 +49,7 @@ func NewPeerNodeListFromConfig(node *Node) ([]*PeerNode, error) {
 	}
 	idList := node.NodeConfigInstance.Id.PeerId
 	addressList := node.NodeConfigInstance.Network.PeerAddress
-	// error happens if
+	// error happens if address list is obviously set wrong
 	if len(addressList) == 0 || len(idList) == 0 || len(addressList) != len(idList){
 		return nil, ConfigPeerListError
 	}

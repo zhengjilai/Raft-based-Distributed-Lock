@@ -570,11 +570,12 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 				return
 			}
 			// if still a valid leader, then process the response
-			if response.Term == startCurrentTerm{
+			if response.Term == startCurrentTerm {
+
 				if response.Success {
-					if prevIndexRecord + 1 <= prevIndexRecord + entryLength {
+					if prevIndexRecord+1 <= prevIndexRecord+entryLength {
 						n.NodeLogger.Debugf("Peer %d append entry from %d to %d succeeded.", response.NodeId,
-							prevIndexRecord + 1, prevIndexRecord + entryLength)
+							prevIndexRecord+1, prevIndexRecord+entryLength)
 					} else {
 						n.NodeLogger.Debugf("Peer %d append no entries (for heartbeat).", response.NodeId)
 					}
@@ -583,7 +584,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 					n.PeerList[indexIntermediate].NextIndex = nextIndexRecord + entryLength
 					// if prevIndex matches in peers' local LogMemory (Success == true)
 					// then update matchIndex equal to the index of the last appended LogEntry
-					if n.PeerList[indexIntermediate].NextIndex - 1 > n.PeerList[indexIntermediate].MatchIndex {
+					if n.PeerList[indexIntermediate].NextIndex-1 > n.PeerList[indexIntermediate].MatchIndex {
 						n.PeerList[indexIntermediate].MatchIndex = n.PeerList[indexIntermediate].NextIndex - 1
 					}
 
@@ -593,22 +594,22 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						// count itself first
 						matchedPeers := 1
 						// count the followers
-						for _, peerInstance := range n.PeerList{
+						for _, peerInstance := range n.PeerList {
 							if peerInstance.MatchIndex >= k {
 								matchedPeers += 1
 							}
 						}
 						// if majority (>n/2+1) of peers commit, then itself commit
-						if 2 * matchedPeers > len(n.NodeConfigInstance.Id.PeerId) + 1 {
+						if 2*matchedPeers > len(n.NodeConfigInstance.Id.PeerId)+1 {
 							n.NodeContextInstance.CommitIndex = k
-							n.NodeLogger.Debugf("Majority of peers append LogEntry " +
+							n.NodeLogger.Debugf("Majority of peers append LogEntry "+
 								"with index %d, now can commit it.", k)
 						}
 					}
 
 					// if some update to commitIndex happened, then start the commit goroutine
 					if n.NodeContextInstance.CommitIndex > origCommitIndex {
-						n.NodeLogger.Debugf("Commitment is to be triggered by AppendEntries success in term %d, " +
+						n.NodeLogger.Debugf("Commitment is to be triggered by AppendEntries success in term %d, "+
 							"original commit index %d, to be committed index %d.",
 							startCurrentTerm, origCommitIndex, n.NodeContextInstance.CommitIndex)
 						// begin to update statemap
@@ -617,33 +618,37 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						n.NodeContextInstance.TriggerAEChannel()
 					}
 
-				}
-			} else {
-				// if appending LogEntry does not succeed, decrease nextIndex
-				if response.ConflictEntryTerm > 0 {
-					lastIndexOfTerm, err := n.LogEntryInMemory.FetchLastIndexOfTerm(response.ConflictEntryTerm)
-					if err == storage.InMemoryNoSpecificTerm {
-						n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
-					} else if err != nil {
-						n.NodeLogger.Errorf("Error happens when searching certain term, error: %s", err)
-						n.mutex.Unlock()
-						return
-					} else {
-						n.PeerList[indexIntermediate].NextIndex = lastIndexOfTerm + 1
-					}
 				} else {
-					// note that conflict entry index is often the fist LogEntry leader sends
-					// thus, setting it as nextIndex is a kind of decrement (NextIndex--)
-					n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+					// if appending LogEntry does not succeed, decrease nextIndex
+					if response.ConflictEntryTerm > 0 {
+						lastIndexOfTerm, err := n.LogEntryInMemory.FetchLastIndexOfTerm(response.ConflictEntryTerm)
+						if err == storage.InMemoryNoSpecificTerm {
+							n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+						} else if err != nil {
+							n.NodeLogger.Errorf("Error happens when searching certain term %d, error: %s",
+								response.ConflictEntryTerm, err)
+							n.mutex.Unlock()
+							return
+						} else {
+							n.PeerList[indexIntermediate].NextIndex = lastIndexOfTerm + 1
+							n.NodeLogger.Debugf("Set NextIndex of peer %d as lastIndexOfTerm + 1 (%d)",
+								indexIntermediate, lastIndexOfTerm+1)
+						}
+					} else {
+						// note that conflict entry index is often the first LogEntry leader sends
+						// thus, setting it as nextIndex is a kind of decrement (NextIndex--)
+						n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+						n.NodeLogger.Debugf("Set NextIndex of peer %d as ConflictEntryIndex (%d)",
+							indexIntermediate, response.ConflictEntryIndex)
+					}
+					n.NodeLogger.Debugf("The nextIndex of node %d has changed to %d",
+						n.PeerList[indexIntermediate].PeerId, n.PeerList[indexIntermediate].NextIndex)
+
+					// start a new goroutine to process remaining entry append work
+					appendAgainList := []uint32{n.PeerList[indexIntermediate].PeerId}
+					go n.SendAppendEntriesToPeers(appendAgainList)
 				}
-				n.NodeLogger.Debugf("The nextIndex of node %d has changed to %d",
-					n.PeerList[indexIntermediate].PeerId, n.PeerList[indexIntermediate].NextIndex)
-
-				// start a new goroutine to process remaining entry append work
-				appendAgainList := []uint32{n.PeerList[indexIntermediate].PeerId}
-				go n.SendAppendEntriesToPeers(appendAgainList)
 			}
-
 			// don't forget to unlock mutex
 			n.mutex.Unlock()
 		}()
