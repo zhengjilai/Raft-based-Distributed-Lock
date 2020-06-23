@@ -351,6 +351,7 @@ func (n *Node) StartCandidateVoteModule() {
 			if response.Term > savedCurrentTerm {
 				n.NodeLogger.Debugf("During waiting CandidateVote response, term changes to %d",
 					response.Term)
+				n.NodeContextInstance.HopToCurrentLeaderId = 0
 				n.BecomeFollower(response.Term)
 				return
 			} else if response.Term == savedCurrentTerm && n.NodeContextInstance.CurrentTerm == savedCurrentTerm {
@@ -563,6 +564,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 			if response.Term > startCurrentTerm {
 				n.NodeLogger.Debugf("Receiving AppendEntries response, but remote term of %d has changed to %d.",
 					response.NodeId, response.Term)
+				n.NodeContextInstance.HopToCurrentLeaderId = 0
 				n.BecomeFollower(response.Term)
 				n.mutex.Unlock()
 				return

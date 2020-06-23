@@ -29,6 +29,11 @@ message ClientAcquireDLockResponse {
 
     // if the requested peer is not the current leader, return the leader ip:port
     string currentLeader = 3;
+
+    // nonce is used together with pending
+    // the client will record nonce once pending == false
+    // and then query the dlock state, checking whether the current dlock nonce is indentical to the recorded one
+    uint32 nonce = 4;
 }
 
 message ClientQueryDLockRequest {
@@ -70,10 +75,15 @@ message ClientReleaseDLockRequest {
 message ClientReleaseDLockResponse {
 
     // released is true iff
-    // 1. the specific dlock has already been released
-    // 2. a release LogEntry is appended successfully (but may not be committed yet)
+    // a release LogEntry is appended successfully (but may not be committed yet)
+    // should query periodically afterward by client
     bool released = 1;
 
     // if the requested peer is not the current leader, return the leader ip:port
     string currentLeader = 2;
+
+    // nonce is used together with released
+    // the client will record nonce once pending == false
+    // and then query the dlock state, checking whether the current dlock nonce is indentical to the recorded one
+    uint32 nonce = 3;
 }

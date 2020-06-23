@@ -240,6 +240,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 
 	// redirected? succeeded? pending? other bugs?
 	startQueryTag := false
+	var recordedNonce uint32
 	if response.CurrentLeader != ""{
 		fmt.Printf("Acquire DLock %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
@@ -256,6 +257,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 		fmt.Printf("Acquire DLock %s succeeded (at least not pending), begin to query state, request %+v.\n",
 			address, request)
 		startQueryTag = true
+		recordedNonce = response.Nonce
 	} else if response.Sequence != 0 {
 		fmt.Printf("Acquire DLock %s pending, request %+v, acquirement sequence %d.\n",
 			address, request, response.Sequence)
@@ -264,16 +266,11 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 
 	tickerQuery := time.NewTicker(time.Duration(10) * time.Millisecond)
 	defer tickerQuery.Stop()
-	tickerRefresh := time.NewTicker(time.Duration(150) * time.Millisecond)
+	tickerRefresh := time.NewTicker(time.Duration(15) * time.Millisecond)
 	defer tickerRefresh.Stop()
 	timer := time.NewTimer(time.Duration(timeout) * time.Millisecond)
 	defer timer.Stop()
 	requestQuery := &pb.ClientQueryDLockRequest{LockName: lockName}
-	if err != nil {
-		fmt.Printf("Getting Local ip for Acquire DLock from %s fails, request %+v.\n",
-			address, request)
-		return false
-	}
 
 	for {
 		select {
@@ -284,12 +281,16 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				if err != nil {
 					fmt.Printf("Error happens when checking state of Acquire DLock, %s.\n", err)
 					return false
-				} else if responseQuery.Owner == drc.ClientId && responseQuery.Expire == request.Expire{
-					fmt.Printf("Acquireing DLock %s confirms success after checking state of Acquire DLock, " +
-						"timestamp: %d ms, expire: %d ms\n",
-						request.LockName, responseQuery.Timestamp/1000000, responseQuery.Expire/1000000)
+				} else if responseQuery.Nonce > recordedNonce {
+					// this "for" statement can exit
+					// only when we found that the current LogState matches the recorded Nonce
+					fmt.Printf("Acquiring DLock %s confirms success after checking state of Acquire DLock, " +
+						"timestamp: %d ms, expire: %d ms, recorded nonce %d, current nonce %d.\n",
+						request.LockName, responseQuery.Timestamp/1000000, responseQuery.Expire/1000000,
+						recordedNonce, responseQuery.Nonce)
 					return true
 				}
+				// output the state of pending list, namely how many clients are waiting
 				if responseQuery.PendingNum > 0 {
 					fmt.Printf("Acquire DLock %s is still pending, pending acquirement number %d.\n",
 						request.LockName, responseQuery.PendingNum)
@@ -311,6 +312,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					fmt.Printf("Acquire DLock %s is not pending now, request %+v.\n",
 						address, request)
 					startQueryTag = true
+					recordedNonce = response.Nonce
 				}
 			}
 		case <- timer.C:
@@ -402,6 +404,9 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 	}
 
 	// redirected? succeeded? pending? other bugs?
+	startQueryTag := false
+	var recordedNonce uint32
+
 	if response.CurrentLeader != ""{
 		fmt.Printf("Release DLock %s redirected, request %+v, redirected to %s.\n",
 			address, request, response.CurrentLeader)
@@ -415,10 +420,44 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 			return false
 		}
 	} else if response.Released == true {
-		fmt.Printf("DLock %s has been released, meaning you does not possess it now.\n", lockName)
-		return true
+		fmt.Printf("Release DLock %s succeeded (but may not committed), begin to query state, request %+v.\n",
+			address, request)
+		startQueryTag = true
+		recordedNonce = response.Nonce
 	} else {
-		fmt.Printf("Releasing DLock %s failed, meaning nothing have been done for releasing dlock.\n", lockName)
+		fmt.Printf("Release DLock %s failed, meaning nothing have been done for releasing dlock.\n", lockName)
 		return false
+	}
+
+	tickerQuery := time.NewTicker(time.Duration(10) * time.Millisecond)
+	defer tickerQuery.Stop()
+	timer := time.NewTimer(time.Duration(timeout) * time.Millisecond)
+	defer timer.Stop()
+	requestQuery := &pb.ClientQueryDLockRequest{LockName: lockName}
+
+	for {
+		select {
+		case <- tickerQuery.C:
+			// judge whether the query process has started up
+			if startQueryTag {
+				responseQuery, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(requestQuery)
+				if err != nil {
+					fmt.Printf("Error happens when checking state of Release DLock, %s.\n", err)
+					return false
+				} else if responseQuery.Nonce > recordedNonce {
+					// this "for" statement can exit
+					// only when we found that the current LogState matches the recorded Nonce
+					fmt.Printf("Release DLock %s confirms success after checking state of Release DLock, " +
+						"timestamp: %d ms, expire: %d ms, recorded nonce %d, current nonce %d.\n",
+						request.LockName, responseQuery.Timestamp/1000000,
+						responseQuery.Expire/1000000, recordedNonce, responseQuery.Nonce)
+					return true
+				}
+			}
+		case <- timer.C:
+			fmt.Printf("Release DLock from %s meets server unknown error (timeout), request %+v.\n",
+				address, request)
+			return false
+		}
 	}
 }

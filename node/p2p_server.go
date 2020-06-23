@@ -44,7 +44,7 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
 		return nil, GrpcP2PServerDeadError
 	}
-	gs.NodeRef.NodeLogger.Infof("Begin to precess AppendEntries request, %+v.", request)
+	gs.NodeRef.NodeLogger.Debugf("Begin to process AppendEntries request, %+v.", request)
 
 	response := &pb.AppendEntriesResponse{
 		Term:             gs.NodeRef.NodeContextInstance.CurrentTerm,
@@ -58,22 +58,18 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 
 	// the remote term exceeds local term, should become follower
 	if request.Term > gs.NodeRef.NodeContextInstance.CurrentTerm {
-		gs.NodeRef.NodeLogger.Infof("AppendEntry term %d is greater than current term %d.",
+		gs.NodeRef.NodeLogger.Debugf("AppendEntry term %d is greater than current term %d.",
 			request.Term, gs.NodeRef.NodeContextInstance.CurrentTerm)
 		// become follower and set hopLeaderId as AppendEntries source
 		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 		gs.NodeRef.BecomeFollower(request.Term)
-		// refresh the current term
-		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
-		// reset the election start time, for receiving heart beat (AppendEntry)
-		gs.NodeRef.NodeContextInstance.ElectionRestartTime = time.Now()
 	}
 	// if it is exactly the same term, then an AppendEntry should always come from the leader
 	if request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm {
+		// set hopLeaderId as AppendEntries source
+		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 		// become follower when hear from the current leader
 		if gs.NodeRef.NodeContextInstance.NodeState != Follower {
-			// become follower and set hopLeaderId as AppendEntries source
-			gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 			gs.NodeRef.BecomeFollower(request.Term)
 		}
 		// reset the election start time, for receiving heart beat (AppendEntry)
@@ -143,7 +139,7 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 	}
 	// if current term > request term, then tell the leader that it is obsolete
 	response.Term = gs.NodeRef.NodeContextInstance.CurrentTerm
-	gs.NodeRef.NodeLogger.Infof("The AppendEntry response is %+v", response)
+	gs.NodeRef.NodeLogger.Debugf("The AppendEntry response is %+v", response)
 	return response, nil
 }
 
@@ -158,7 +154,7 @@ func (gs *GrpcP2PServerImpl) CandidateVotesService(ctx context.Context,
 	if gs.NodeRef.NodeContextInstance.NodeState == Dead {
 		return nil, GrpcP2PServerDeadError
 	}
-	gs.NodeRef.NodeLogger.Infof("Begin to process Candidate Votes request, %+v.", request)
+	gs.NodeRef.NodeLogger.Debugf("Begin to process Candidate Votes request, %+v.", request)
 
 	// the original response
 	response := &pb.CandidateVotesResponse{
@@ -169,21 +165,17 @@ func (gs *GrpcP2PServerImpl) CandidateVotesService(ctx context.Context,
 
 	// request term exceeds the local term, then become a follower
 	if request.Term > gs.NodeRef.NodeContextInstance.CurrentTerm {
-		gs.NodeRef.NodeLogger.Infof("Candidate Vote term %d is greater than current term %d.",
+		gs.NodeRef.NodeLogger.Debugf("Candidate Vote term %d is greater than current term %d.",
 			request.Term, gs.NodeRef.NodeContextInstance.CurrentTerm)
 
 		// not sure who is the leader (or even currently there is no leader)
 		// Note that id = 0 is reserved for nobody
 		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = 0
 		gs.NodeRef.BecomeFollower(request.Term)
-		// refresh the current term
-		gs.NodeRef.NodeContextInstance.CurrentTerm = request.Term
 
 		// don't forget setting Accepted !!!!!
 		response.Accepted = true
 		gs.NodeRef.NodeContextInstance.VotedPeer = request.NodeId
-		// reset the election module, for receiving Candidate vote from higher term
-		gs.NodeRef.NodeContextInstance.ElectionRestartTime = time.Now()
 
 	} else if (request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm) &&
 		(gs.NodeRef.NodeContextInstance.VotedPeer == 0 ||
@@ -217,7 +209,7 @@ func (gs *GrpcP2PServerImpl) CandidateVotesService(ctx context.Context,
 
 	// if current term > request term, then tell the candidate that it is obsolete
 	response.Term = gs.NodeRef.NodeContextInstance.CurrentTerm
-	gs.NodeRef.NodeLogger.Infof("The Candidate Votes response is %+v", response)
+	gs.NodeRef.NodeLogger.Debugf("The Candidate Votes response is %+v", response)
 	return response, nil
 }
 

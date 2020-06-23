@@ -245,6 +245,7 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 		Pending:       true,
 		Sequence:      0,
 		CurrentLeader: "",
+		Nonce: 0,
 	}
 
 	// lock before doing anything
@@ -304,7 +305,7 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 			if err != nil {
 				return nil, CliSrvAcquireDLockInternalError
 			}
-			sequence, err := gs.NodeRef.DlockInterchangeInstance.AcquireDLock(request.LockName, timestamp, command)
+			sequence, nonce, err := gs.NodeRef.DlockInterchangeInstance.AcquireDLock(request.LockName, timestamp, command)
 			if err != nil {
 				gs.NodeRef.NodeLogger.Debugf("Acquire dLock %s fails due to %s", request.LockName, err)
 				return nil, CliSrvAcquireDLockInternalError
@@ -312,6 +313,7 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 			if sequence == 0 {
 				// meaning that a LogEntry is directly appended to LogMemory
 				response.Pending = false
+				response.Nonce = nonce
 				gs.NodeRef.NodeLogger.Debugf("Trigger Acquire dLock %s succeeded " +
 					"by directly appending a LogEntry, response %+v", request.LockName, response)
 				return response, nil
@@ -376,6 +378,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 	response := &pb.ClientReleaseDLockResponse{
 		Released:      false,
 		CurrentLeader: "",
+		Nonce: 0,
 	}
 
 	// lock before doing anything
@@ -397,7 +400,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 	} else {
 		clientId := request.ClientID
 		timestamp := time.Now().UnixNano()
-		releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
+		releaseInfo, nonce, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(request.LockName, clientId, timestamp)
 		if err != nil || releaseInfo == ErrorReserve {
 			return nil, CliSrvReleaseDLockInternalError
 		}
@@ -411,6 +414,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 			return response, CliSrvReleaseNonExistingDLockError
 		} else if releaseInfo == TriggerReleaseSuccess {
 			response.Released = true
+			response.Nonce = nonce
 			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), " +
 				"LogEntry for releasing DLock %s has been submitted (however may not be committed), response %+v.",
 				releaseInfo, request.LockName, response)
@@ -432,7 +436,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 				case <-ticker.C:
 					gs.NodeRef.mutex.Lock()
 					timestamp := time.Now().UnixNano()
-					releaseInfo, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(
+					releaseInfo, nonce, err := gs.NodeRef.DlockInterchangeInstance.ReleaseDLock(
 						request.LockName, clientId, timestamp)
 					if err != nil || releaseInfo == ErrorReserve {
 						gs.NodeRef.mutex.Unlock()
@@ -447,6 +451,7 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 						return response, CliSrvReleaseNonExistingDLockError
 					} else if releaseInfo == TriggerReleaseSuccess {
 						response.Released = true
+						response.Nonce = nonce
 						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), "+
 							"LogEntry for releasing DLock %s has been submitted (however may not be committed), response %+v.",
 							releaseInfo, request.LockName, response)
