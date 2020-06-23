@@ -404,15 +404,15 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 		// process four different situations
 		if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased {
 			response.Released = true
-			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
+			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), " +
 				"DLock %s does not exist or has already been released, response: %+v.",
 				releaseInfo, request.LockName, response)
 			gs.NodeRef.mutex.Unlock()
 			return response, CliSrvReleaseNonExistingDLockError
 		} else if releaseInfo == TriggerReleaseSuccess {
 			response.Released = true
-			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
-				"LogEntry for releasing DLock %s has been submitted (however may not be committed) ,response %+v.",
+			gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), " +
+				"LogEntry for releasing DLock %s has been submitted (however may not be committed), response %+v.",
 				releaseInfo, request.LockName, response)
 			gs.NodeRef.mutex.Unlock()
 			return response, nil
@@ -440,15 +440,15 @@ func (gs *GRPCCliSrvServerImpl) ReleaseDLockService(ctx context.Context,
 					}
 					if releaseInfo == NoDLockExist || releaseInfo == AlreadyReleased {
 						response.Released = true
-						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d)," +
+						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), " +
 							"DLock %s does not exist or has already been released, response: %+v.",
 							releaseInfo, request.LockName, response)
 						gs.NodeRef.mutex.Unlock()
 						return response, CliSrvReleaseNonExistingDLockError
 					} else if releaseInfo == TriggerReleaseSuccess {
 						response.Released = true
-						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d),"+
-							"LogEntry for releasing DLock %s has been submitted (however may not be committed) ,response %+v.",
+						gs.NodeRef.NodeLogger.Debugf("End of processing ReleaseDLock request (%d), "+
+							"LogEntry for releasing DLock %s has been submitted (however may not be committed), response %+v.",
 							releaseInfo, request.LockName, response)
 						gs.NodeRef.mutex.Unlock()
 						return response, nil

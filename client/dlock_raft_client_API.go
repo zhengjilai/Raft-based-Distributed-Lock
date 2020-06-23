@@ -264,7 +264,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 
 	tickerQuery := time.NewTicker(time.Duration(10) * time.Millisecond)
 	defer tickerQuery.Stop()
-	tickerRefresh := time.NewTicker(time.Duration(250) * time.Millisecond)
+	tickerRefresh := time.NewTicker(time.Duration(150) * time.Millisecond)
 	defer tickerRefresh.Stop()
 	timer := time.NewTimer(time.Duration(timeout) * time.Millisecond)
 	defer timer.Stop()

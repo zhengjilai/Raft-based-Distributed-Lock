@@ -150,6 +150,7 @@ func (di *DlockInterchange) refreshOrInitDLocks(timestamp int64) error {
 		if err != nil {
 			return err
 		}
+		// don't forget to increment lastAppendedNonce
 		di.PendingAcquire[currentDLockInfo.LockName].LastAppendedNonce += 1
 	}
 	di.NodeRef.NodeLogger.Debugf("Expired dlocks are released in term %d, totally %d",
@@ -358,6 +359,9 @@ func (di *DlockInterchange) AcquireDLock(lockName string,
 		if err != nil {
 			return 0, err
 		}
+		// don't forget to refresh last appended nonce
+		pendingAcq.LastAppendedNonce += 1
+		// trigger append entries
 		di.NodeRef.NodeContextInstance.TriggerAEChannel()
 		di.NodeRef.NodeLogger.Debugf("Acquire process finishes by directly " +
 			"appending a LogEntry to LogMemory (nobody racing for DLock %s).", lockName)
@@ -511,6 +515,9 @@ func (di *DlockInterchange) ReleaseDLock(lockName string, applicant string, time
 		if err != nil {
 			return ErrorReserve, err
 		}
+		// don't forget to refresh last appended nonce
+		dlockAcq.LastAppendedNonce += 1
+		// trigger append entries
 		di.NodeRef.NodeContextInstance.TriggerAEChannel()
 		di.NodeRef.NodeLogger.Debugf("Trigger release of dlock %s succeeded by appending an LogEntry.", lockName)
 		return TriggerReleaseSuccess, nil
