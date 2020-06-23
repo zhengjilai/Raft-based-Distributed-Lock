@@ -53,7 +53,7 @@ func (di *DlockInterchange) InitFromDLockStateMap(timestamp int64) error {
 	di.NodeRef.NodeLogger.Debugf("Init a DlockInterchange from statemap, term %d", di.LeaderTerm)
 	// make sure the current MemoryStateMap is up-to-date
 	di.NodeRef.commitProcedure()
-	err := di.refreshOrInitDLocks(timestamp)
+	err := di.scanDLockStateMap(timestamp)
 	if err != nil {
 		return err
 	}
@@ -61,9 +61,9 @@ func (di *DlockInterchange) InitFromDLockStateMap(timestamp int64) error {
 }
 
 // Release all expired dlocks in statemap, according to the current timestamp
-// Often used when initializing a DLockInterchange, or refreshing DLockInterchange periodically
+// Often used when initializing a DLockInterchange, or scan DLockStatemap periodically
 // should enter with mutex
-func (di *DlockInterchange) refreshOrInitDLocks(timestamp int64) error {
+func (di *DlockInterchange) scanDLockStateMap(timestamp int64) error {
 
 	di.NodeRef.NodeLogger.Debugf("Begin to release all expired dlocks in statemap, term %d", di.LeaderTerm)
 
@@ -90,19 +90,27 @@ func (di *DlockInterchange) refreshOrInitDLocks(timestamp int64) error {
 			di.PendingAcquire[lockStateDecoded.LockName] = NewDlockVolatileAcquirement(
 				lockStateDecoded.LockName, lockStateDecoded.LockNonce)
 			pendingAcq = di.PendingAcquire[lockStateDecoded.LockName]
+			di.NodeRef.NodeLogger.Debugf("Init a DLockVolatileAcquirement for dlock %s at term %d, with nonce %d",
+				lockName, di.LeaderTerm, lockStateDecoded.LockNonce)
 		}
 		err = pendingAcq.AbandonExpiredAcquirement(timestamp)
 		if err != nil {
+			di.NodeRef.NodeLogger.Debugf("Begin to abandon all expired acquirement for dlock %s at term %d",
+				lockName, di.LeaderTerm)
 			return err
+		}
+
+		// if there is a LogEntry appended but not committed, then skip this dlock
+		currentNonce := lockState.(*storage.DlockState).LockNonce
+		if pendingAcq.LastAppendedNonce > currentNonce {
+			di.NodeRef.NodeLogger.Debugf("Stop when processing a Dlock %s at nonce %d, " +
+				"as a LogEntry with nonce %d is appended but not committed.",
+				lockName, pendingAcq.LastAppendedNonce, currentNonce)
+			continue
 		}
 
 		// refresh dlock only if it is expired
 		if lockStateDecoded.Timestamp + lockStateDecoded.Expire < timestamp {
-
-			if pendingAcq.LastAppendedNonce > lockState.(*storage.DlockState).LockNonce {
-				// meaning there is a LogEntry appended but not committed, then skip this dlock
-				continue
-			}
 
 			if lockStateDecoded.Owner != "" {
 				// construct a new LogEntry, in order to release the dlock
@@ -116,7 +124,7 @@ func (di *DlockInterchange) refreshOrInitDLocks(timestamp int64) error {
 				// append current entry
 				logEntries = append(logEntries, currentLogEntry)
 				appendNumber += 1
-				di.NodeRef.NodeLogger.Debugf("Begin to release expired dlock %d in statemap, nonce %d, original owner %s, term %d",
+				di.NodeRef.NodeLogger.Debugf("Begin to release expired dlock %s in statemap, nonce %d, original owner %s, term %d",
 					lockStateDecoded.LockName, lockStateDecoded.LockNonce, lockStateDecoded.Owner, di.LeaderTerm)
 			}
 
@@ -165,7 +173,7 @@ func (di *DlockInterchange) constructLogEntryByItems(lockNonce uint32, lockName 
 
 // Refresh a specific dlock
 // 1. This function may pop an acquirement if necessary, but the acquirement should be owned by the specific client
-// 2. Expire LogEntry will not be created here (LogEntry for directly releasing dlock, see refreshOrInitDLocks)
+// 2. Expire LogEntry will not be created here (LogEntry for directly releasing dlock, see scanDLockStateMap)
 // This design is because we can save a LogEntry by merging release and acquirement
 // 3. The returned nonce is the nonce of appended LogEntry, often used when acquiring a dlock
 // should enter with mutex
@@ -556,7 +564,7 @@ func (di *DlockInterchange) ReleaseExpiredDLockPeriodically() {
 			}
 			now := time.Now().UnixNano()
 			di.NodeRef.commitProcedure()
-			err := di.refreshOrInitDLocks(now)
+			err := di.scanDLockStateMap(now)
 			if err != nil {
 				di.NodeRef.NodeLogger.Debugf("Error happens when periodically releasing expired dlocks," +
 					" term %d, error %s", di.LeaderTerm, err)
