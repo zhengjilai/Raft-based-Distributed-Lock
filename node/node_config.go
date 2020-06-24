@@ -6,6 +6,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/dlock_raft/utils"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"reflect"
@@ -70,6 +71,9 @@ type NodeConfig struct{
     Storage struct {
 		// the path for log file
 		LogPath string `yaml:"log_path"`
+
+		// the log level, can be
+		LogLevel string `yaml:"log_level"`
 		
 		// the path for persistent entry storage
 		EntryStoragePath string `yaml:"entry_storage_path"`
@@ -118,6 +122,11 @@ func NewNodeConfigFromYaml(configPath string) (*NodeConfig, error) {
 		if item == 0 {
 			return nil, nodeConfigIdZeroError
 		}
+	}
+
+	// set default log level
+	if utils.GetLogLevelFromString(nodeConfig.Storage.LogLevel) == utils.InfoLevel {
+		nodeConfig.Storage.LogLevel = "Info"
 	}
 
 	// set default values

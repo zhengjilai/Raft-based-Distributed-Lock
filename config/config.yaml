@@ -40,5 +40,8 @@ parameters:
 storage:
   # the path for log file
   log_path: "./var/"
+  # the log level, can choose from:
+  # Critical, Error, Warning, Notice, Info, Debug
+  log_level: Info
   # the path for persistent entry storage
   entry_storage_path: "./var/persistence.db"

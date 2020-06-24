@@ -204,6 +204,26 @@ func (l *Logger) SetLogLevel(level LogLevel) {
 	l.worker.level = level
 }
 
+func GetLogLevelFromString(level string) LogLevel {
+
+	var defaultValue = map[string]LogLevel{
+		"Critical": CriticalLevel,
+		"Error": ErrorLevel,
+		"Warning": WarningLevel,
+		"Notice": NoticeLevel,
+		"Info": InfoLevel,
+		"Debug": DebugLevel,
+	}
+
+	logLevel, ok := defaultValue[level]
+	if !ok {
+		return InfoLevel
+	} else {
+		return logLevel
+	}
+
+}
+
 // Function of Worker class to log a string based on level
 func (w *Worker) Log(level LogLevel, calldepth int, info *Info) error {
 

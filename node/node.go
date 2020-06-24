@@ -104,8 +104,9 @@ func NewNode(configFile ...string) (*Node, error){
 		return nil, ConstructLoggerError
 	}
 	// set log level as DEBUG
-	nodeLoggerInstance.SetLogLevel(utils.DebugLevel)
-	nodeLoggerInstance.Info("Reconstruct Node Logger succeeded.")
+	nodeLoggerInstance.SetLogLevel(utils.GetLogLevelFromString(nodeConfigInstance.Storage.LogLevel))
+	nodeLoggerInstance.Infof("Reconstruct Node Logger succeeded, loglevel: %s (%d)",
+		nodeConfigInstance.Storage.LogLevel, utils.GetLogLevelFromString(nodeConfigInstance.Storage.LogLevel))
 
 	// the initial context for node
 	nodeContextInstance, err4 := NewStartNodeContext(nodeConfigInstance)

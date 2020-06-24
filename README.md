@@ -34,6 +34,9 @@ Under this circumstance, the requirements are listed as follows:
 - Docker-compose, version 1.22+
 
 ## Deployment
+
+### Preparations
+
 We provide two alternatives for deploying our system, 
 respectively local deployment and docker deployment.
 For either choice, first clone the repository in `$GOPATH/src/github.com` at your local machine.
@@ -63,7 +66,7 @@ export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
 For local deployment, first obtain all required packages listed in [Section of Dependencies](#dependencies).
 
 Then, revise the config file (`$PROJECT_DIR/config/config.yaml`). 
-You can refer to the Section of Config for more details. 
+You can refer to [Section of Configuration](#configuration) for more details. 
 
 Finally, the distributed lock server can be started locally with the following shell script.
 
@@ -82,11 +85,11 @@ docker build -t dlock_raft:0.0.1 .
 ```
 
 Then you should revise the config file (`$PROJECT_DIR/config/config.yaml`). 
-You can refer to the section of config for more details. 
+You can refer to [Section of Configuration](#configuration) for more details. 
 
-Finally, you can start the distributed lock service with `docker run`.
+Finally, you can start the distributed lock service with docker-compose.
 Remember to expose the same port in `docker-compose-local.yaml` 
-as `self_cli_address` defines in `$PROJECT_DIR/config/config.yaml`.
+as how `self_cli_address` is defined in `$PROJECT_DIR/config/config.yaml`.
 
 ```shell
 cd $PROJECT_DIR
@@ -101,7 +104,7 @@ docker-compose -f docker-compose-local.yaml down
 ```
 
 ## Configuration
-
+<h3 id="configuration"></h3>
 A config file is required when starting the distributed lock node, 
 both for local deployment and docker deployment.
 
@@ -119,25 +122,51 @@ See `docker-compose-local.yaml` if you are still vague about it.
 
 In short, config file contains four parts, namely id, address, parameters and storage.
 
-A typical id is shown as follows. `self_id` is the id of this specific node, 
+Id configuration determines the globally unique id for nodes.
+A typical id configuration is shown as follows. `self_id` is the id of this specific node, 
 and `peer_id` are the id of other nodes in the distributed lock system. 
 The setting of id only have two restrictions. 
 First, all ids are globally unique, and your `self_id` should exist in all other nodes' `peer_id` list.
 Second, `0` is invalid for an id.
-```
+
+```yaml
+# id configuration for node 1
 id:
   self_id: 1
   peer_id:
     - 2
     - 3
+# id configuration for node 2: self_id = 2, and peer_id = [1,3]
+# id configuration for node 3: self_id = 3, and peer_id = [1,2]
 ```
 
+Address configuration determines the address for rpc connection. 
+A typical address configuration is shown as follows. 
+`self_address` and `peer_address` are utilized for grpc connection between nodes in the cluster.
+`self_cli_address` and `peer_cli_address` are utilized for connection between nodes and client 
+(namely distributed lock acquirers). 
+Similarly, all addresses should be globally unique, 
+and your `self_xx` should exist in all other nodes' `peer_xx` list, just as how id configuration does.
 
-- "address" are relevant to the network connection of your distributed lock cluster, 
-while paths in "storage" determines the place for logs and logEntry database.
-On the other hand, you do not need to revise "parameters" generally.
+```yaml
+# a typical id configuration
+network:
+  self_address: "192.168.2.30:14005"
+  self_cli_address: "192.168.2.30:24005"
+  peer_address:
+    - "192.168.0.2:14005"
+    - "192.168.0.3:14005"
+  peer_cli_address:
+    - "192.168.0.2:24005"
+    - "192.168.0.3:24005"
+```
 
+Parameter configuration determines some internal parameters for raft or dlock.
+Generally you do not need to revise them. See comments if you want to revise certain parameters.
 
+Storage configuration are simply the path for persistent database and system log. 
+For `log_level`, the default is Info. 
+However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
 ## Experiments
 We provide two test templates, including a local deployment example with docker-compose
@@ -146,8 +175,34 @@ and a (simulated) real-life deployment example in a distributed environment.
 ### Local Deployment Example
 
 Local deployment test should be conducted with docker-compose.
-All materials for local test is placed in `SPROJECT_DIR/experiments/local_test_3nodes`.
+All materials for local test are placed in `SPROJECT_DIR/experiments/local_test_3nodes`.
 
+First, start 3 docker containers to compose a distributed lock.
+```shell
+cd $PROJECT_DIR/experiments/local_test_3nodes
+make start
+```
+
+We provide some integrated tests in `SPROJECT_DIR/client/dlock_raft_client_API_test.go`
+for this locally deployed cluster. You can trigger all of them with `go test`. 
+Your local cluster is running normally if all integrated tests are passed.
+```shell
+go test github.com/dlock_raft/client
+```
+
+To stop the cluster, you can use `make stop`; 
+to clean all existing system logs and Entries in database you can use `make clean`.
+
+Note that in local test, we by default expose port 24005-24007 for three dlock nodes. 
+Thus, the addressList in `SPROJECT_DIR/client/dlock_raft_client_API_test.go` is set as follows.
+You can revise them when doing more complicated integrated tests.
+```go
+var addressList = [...]string {
+	"0.0.0.0:24005",
+	"0.0.0.0:24006",
+	"0.0.0.0:24007",
+}
+```
 
 ### Distributed Deployment Example
 2
