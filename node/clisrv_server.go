@@ -272,8 +272,8 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 
 		if request.Sequence != 0 {
 			// request.sequence != 0 means the client wants to refresh a dLock acquirement by its sequence
-			refreshSuccess, err := gs.NodeRef.DlockInterchangeInstance.RefreshAcquirementBySequence(
-				request.LockName, request.Sequence, timestamp)
+			refreshSuccess, nonce, err := gs.NodeRef.DlockInterchangeInstance.RefreshAcquirementBySequence(
+				request.LockName, request.ClientID, request.Sequence, timestamp)
 			// if sequence error happens, ask the client to check whether the dlock has been in statemap
 			if err == VolatileAcquirementInfoFetchingError || err == VolatileAcquirementInvalidSequenceError{
 				response.Pending = false
@@ -286,15 +286,20 @@ func (gs *GRPCCliSrvServerImpl) AcquireDLockService(ctx context.Context,
 					request.LockName, err)
 				return nil, CliSrvRefreshDLockAcquirementBySequenceError
 			} else {
-				response.Pending = refreshSuccess
+				response.Sequence = request.Sequence
 				if refreshSuccess {
-					response.Sequence = request.Sequence
+					response.Nonce = nonce
 					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d succeeded, response: %+v",
 						request.LockName, request.Sequence, response)
 				} else {
 					gs.NodeRef.NodeLogger.Debugf("Refresh acquirement dLock %s by sequence %d " +
 						"failed, since the acquirement does not exist or has already expired, response: %+v",
 						request.LockName, request.Sequence, response)
+				}
+				if nonce > 0 {
+					response.Pending = false
+				} else {
+					response.Pending = true
 				}
 				return response, nil
 			}

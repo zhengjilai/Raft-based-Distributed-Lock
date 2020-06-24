@@ -304,7 +304,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 					fmt.Printf("Error happens when invoking Acquire DLock, %s.\n", err)
 					return false
 				}
-				if response.Pending == false || response.Sequence == 0 {
+				if response.Pending == false {
 					fmt.Printf("Acquire DLock %s is not pending now, response %+v.\n",
 						address, response)
 					startQueryTag = true

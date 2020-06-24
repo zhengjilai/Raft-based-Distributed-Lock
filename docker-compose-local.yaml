@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+  raft_peer1:
+    container_name: peer
+    image: dlock_raft:0.0.1
+    volumes:
+      # the path for log and persistent local entry storage
+      - ./var:/srv/gopath/src/github.com/dlock_raft/var
+      # the config file for peer1
+      - ./config/config.yaml:/srv/gopath/src/github.com/dlock_raft/config/config.yaml
+    ports:
+      - "24005:24005"

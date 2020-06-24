@@ -209,7 +209,7 @@ func (di *DlockInterchange) refreshSpecificDLock(dlockName string, clientID stri
 	}
 
 	// get last valid acquirement
-	command, err := dlockAcq.FetchFirstValidAcquirement(timestamp, false)
+	command, err := dlockAcq.FetchFirstValidAcquirement(false, timestamp)
 	if err != nil {
 		return 0, err
 	}
@@ -231,7 +231,7 @@ func (di *DlockInterchange) refreshSpecificDLock(dlockName string, clientID stri
 	}
 
 	// now command must exist, and deal with the same client, then pop the last command
-	command, err = dlockAcq.FetchFirstValidAcquirement(timestamp, true)
+	command, err = dlockAcq.FetchFirstValidAcquirement(true, timestamp)
 	if err != nil {
 		return 0, err
 	}
@@ -415,7 +415,8 @@ func (di *DlockInterchange) AcquireDLock(lockName string,
 // refresh a dlock acquirement specified by sequence number
 // should enter with mutex
 // note that sequence is returned by AcquireDlock, and already expired acquirement can never be refreshed
-func (di *DlockInterchange) RefreshAcquirementBySequence(lockName string, sequence uint32, timestamp int64)(bool, error){
+func (di *DlockInterchange) RefreshAcquirementBySequence(lockName string, clientId string,
+	sequence uint32, timestamp int64)(bool, uint32, error){
 
 	di.NodeRef.NodeLogger.Debugf("Begin to refresh dlock %s acquirement seq %d in term %d",
 		lockName, sequence, di.LeaderTerm)
@@ -428,28 +429,42 @@ func (di *DlockInterchange) RefreshAcquirementBySequence(lockName string, sequen
 	if !ok {
 		di.NodeRef.NodeLogger.Debugf("When refreshing DLock acquirement %s at sequence %d," +
 			" it does not exist, thus do nothing", lockName, sequence)
-		return false, nil
+		return false, 0, nil
 	}
 	// abandon expired acquirement before refresh them
 	err := dlockAcq.AbandonExpiredAcquirement(timestamp)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	err = dlockAcq.RefreshAcquirement(sequence, timestamp)
 	if err == VolatileAcquirementExpireError {
 		di.NodeRef.NodeLogger.Debugf("When refreshing DLock acquirement %s at sequence %d," +
 			" it has already expired, thus do nothing", lockName, sequence)
-		return false, VolatileAcquirementExpireError
+		return false, 0, VolatileAcquirementExpireError
 	} else if err != nil {
 		di.NodeRef.NodeLogger.Debugf("When refreshing DLock acquirement %s at sequence %d," +
 			" it has a sequence error, thus do nothing, error: %s", lockName, sequence, err)
-		return false, err
-	} else {
-		di.NodeRef.NodeLogger.Debugf("Refresh acquirement for DLock %s by sequence %d succeeded.",
-			lockName, sequence)
-		return true, nil
+		return false, 0, err
 	}
+	di.NodeRef.NodeLogger.Debugf("Refresh acquirement timestamp for DLock %s by sequence %d succeeded, " +
+		"now begin to refresh dlock",
+		lockName, sequence)
+
+	// now begin to refresh specific dlock
+	nonce, err := di.refreshSpecificDLock(lockName, clientId, timestamp)
+
+	if err != nil {
+		return false, 0, err
+	}
+	if nonce > 0 {
+		di.NodeRef.NodeLogger.Debugf("Refresh acquirement finishes by appending a LogEntry," +
+			" at sequence %d, nonce %d", sequence, nonce)
+	} else {
+		di.NodeRef.NodeLogger.Debugf("Refresh acquirement finishes by simply refreshing requirement dlock," +
+			" at sequence %d, nonce %d", sequence, nonce)
+	}
+	return true, nonce, nil
 }
 
 

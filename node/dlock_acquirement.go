@@ -134,7 +134,7 @@ func (dva *DlockVolatileAcquirement) InsertNewAcquirement(command *storage.Comma
 // remember that this function will not increment dva.LastAppendedNonce
 // if popTag == true, lastProcessedAcquirement will increment, the operation will be POP
 // if popTag == false, lastProcessedAcquirement remain as same, the operation will be GET
-func (dva *DlockVolatileAcquirement) FetchFirstValidAcquirement(timestamp int64, popTag bool) (*storage.CommandDLock, error) {
+func (dva *DlockVolatileAcquirement) FetchFirstValidAcquirement(popTag bool, timestamp int64) (*storage.CommandDLock, error) {
 
 	// first refresh pending list
 	err := dva.AbandonExpiredAcquirement(timestamp)

@@ -339,3 +339,117 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 
 	group.Wait()
 }
+
+func TestDLockRacing(t *testing.T)  {
+
+	fmt.Println("Begin to test DLock racing")
+
+	var group sync.WaitGroup
+	// totally 5 acquirers
+	acquirerNum := 10
+	group.Add(acquirerNum)
+	lockName := "DLockRacingTest"
+	indexAccumulate := 0
+	startTimestamp := time.Now()
+	acquireSequence := 0
+
+	// the first acquirer
+	go func() {
+		// the client id index
+		clientIndex1 := 1
+		// the dlock expire for first acquirer, meaning the dlock will expire at time 1s
+		dlockExpire1 := int64(1500)
+
+		dlockClient1 := NewDLockRaftClientAPI()
+		t.Log(fmt.Printf("DLockTest: Client %d has clientId as %s.\n",
+			clientIndex1, dlockClient1.ClientId))
+
+		t.Log(fmt.Printf("DLockTest: Client %d now at time %d ms.\n",
+			clientIndex1, time.Since(startTimestamp).Nanoseconds() / 1000000))
+		ok := dlockClient1.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire1)
+		indexAccumulate ++
+		if ok {
+			t.Log(fmt.Printf("DLockTest: Client %d acquire DLock %s succeeded, expire %d ms\n",
+				clientIndex1, lockName, dlockExpire1))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client %d acquire DLock %s failed.\n", clientIndex1, lockName))
+			group.Done()
+			return
+		}
+		// increment sequence
+		acquireSequence ++
+		if acquireSequence == 1 {
+			t.Log(fmt.Printf("DLockTest: Client %d acquire DLock %s as expected, sequence %d.\n",
+				clientIndex1, lockName, acquireSequence))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client %d acquire DLock %s, sequence %d, " +
+				"which is not as expected.\n", clientIndex1, lockName, acquireSequence))
+			group.Done()
+			return
+		}
+
+		group.Done()
+	}()
+
+
+	// the following index acquirer
+	dlockExpire := int64(4000)
+	for i := 2 ; i < acquirerNum + 1; i++ {
+
+		clientIndexIntermediate := i
+
+		go func() {
+
+			dlockClient := NewDLockRaftClientAPI()
+			t.Log(fmt.Printf("DLockTest: Client %d has clientId as %s.\n",
+				clientIndexIntermediate, dlockClient.ClientId))
+
+			// sleep, letting every other node take turns to wake up
+			time.Sleep( time.Duration((clientIndexIntermediate- 1) * 100) * time.Millisecond)
+
+			// client i now at time (i-1) * 100 ms, begin to acquire dlock
+			t.Log(fmt.Printf("DLockTest: Client %d now at time %d ms.\n",
+				clientIndexIntermediate, time.Since(startTimestamp).Nanoseconds() / 1000000))
+			ok := dlockClient.AcquireDLock(addressList[indexAccumulate % len(addressList)],
+				lockName, dlockExpire, 10000)
+			indexAccumulate ++
+			if ok {
+				t.Log(fmt.Printf("DLockTest: Client %d acquire DLock %s succeeded, expire %d ms\n",
+					clientIndexIntermediate, lockName, dlockExpire))
+			} else {
+				t.Error(fmt.Printf("DLockTest: Client %d acquire DLock %s failed.\n",
+					clientIndexIntermediate, lockName))
+				group.Done()
+				return
+			}
+			// increment sequence and test it
+			// all acquirement will take turns to be processed, which is an implicit function of VolatileAcquirement
+			acquireSequence ++
+			if acquireSequence == clientIndexIntermediate {
+				t.Log(fmt.Printf("DLockTest: Client %d acquire DLock %s, sequence %d.\n",
+					clientIndexIntermediate, lockName, acquireSequence))
+			} else {
+				t.Error(fmt.Printf("DLockTest: Client %d acquire DLock %s, sequence %d, " +
+					"which is not as expected.\n", clientIndexIntermediate, lockName, acquireSequence))
+				group.Done()
+				return
+			}
+			// release dlock immediately after acquiring it
+			ok = dlockClient.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
+			indexAccumulate ++
+			if ok {
+				t.Log(fmt.Printf("DLockTest: Client %d release DLock %s succeeded as expected.\n",
+					clientIndexIntermediate, lockName))
+			} else {
+				t.Error(fmt.Printf("DLockTest: Client %d release DLock %s failed unexpectedly.\n",
+					clientIndexIntermediate, lockName))
+				group.Done()
+				return
+			}
+
+			group.Done()
+		}()
+	}
+
+	group.Wait()
+}
