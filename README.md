@@ -3,6 +3,7 @@ A Golang implementation of Distributed Lock based on Raft consensus algorithm.
 
 ## Dependencies
 ### Local Deployment Dependencies
+<h3 id="dependencies"></h3>
 Basic requirements for local deployment of dlock_raft are listed as follows:
 
 - Golang, version 1.12+
@@ -22,7 +23,7 @@ Basic requirements for local deployment of dlock_raft are listed as follows:
 
 You can either obtain all these packages with `go get` or get their source codes from github with `git clone`. 
 
-If you are still ambiguous, please refer to `Dockerfile` for more details, 
+If you are still vague, please refer to `Dockerfile` for more details, 
 where we solve all requirement problems for the image through simple shell scripts.
 
 ### Docker Deployment Dependencies
@@ -35,7 +36,7 @@ Under this circumstance, the requirements are listed as follows:
 ## Deployment
 We provide two alternatives for deploying our system, 
 respectively local deployment and docker deployment.
-For either choice, clone the repository in `$GOPATH/src/github.com` at your local machine.
+For either choice, first clone the repository in `$GOPATH/src/github.com` at your local machine.
 
 ```shell
 mkdir -p $GOPATH/src/github.com && cd $GOPATH/src/github.com
@@ -43,15 +44,7 @@ git clone git@github.com:zhengjilai/Raft-based-Distributed-Lock.git
 mv Raft-based-Distributed-Lock dlock_raft
 ```
 
-Here we also export an environment variable dubbed `PROJECT_DIR` for convenience.
-
-```shell
-export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
-```
-
-### Local Deployment 
-
-First, generate all grpc codes for the project automatically with `protoc` and `protoc-gen-go`.
+Then, generate all grpc codes for the project automatically with `protoc` and `protoc-gen-go`.
 This procedure is optional, since we have already generated those grpc codes for you.
 
 ```shell
@@ -59,11 +52,18 @@ cd $PROJECT_DIR
 protoc --proto_path=. --go_out=plugins=grpc:$GOPATH/src ./protobuf/*.proto
 ```
 
-Then you can revise the config file (`$PROJECT_DIR/config/config.yaml`). 
-Node ids in "id" and node sockets in "address" are relevant to the network connection of your distributed lock cluster, 
-while paths in "storage" determines the place for logs and logEntry database.
-On the other hand, you do not need to revise "parameters" generally.
-You can refer to the section of config for more details. 
+Finally, we also export an environment variable dubbed `PROJECT_DIR` for convenience.
+
+```shell
+export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
+```
+
+### Local Deployment 
+
+For local deployment, first obtain all required packages listed in [Section of Dependencies](#dependencies).
+
+Then, revise the config file (`$PROJECT_DIR/config/config.yaml`). 
+You can refer to the Section of Config for more details. 
 
 Finally, the distributed lock server can be started locally with the following shell script.
 
@@ -99,6 +99,45 @@ The service can be stopped with the following shell script.
 cd $PROJECT_DIR
 docker-compose -f docker-compose-local.yaml down
 ```
+
+## Configuration
+
+A config file is required when starting the distributed lock node, 
+both for local deployment and docker deployment.
+
+### Location of config file
+
+For local deployment, file config locates in `$PROJECT_DIR/config/config.yaml`.
+
+For docker deployment, the file config should exist as `/srv/gopath/src/github.com/dlock_raft/config/config.yaml`
+in the docker container.
+Generally, we will use `-v` (docker run) or `volume` (docker-compose) 
+to reflect an outside config file into the container.
+See `docker-compose-local.yaml` if you are still vague about it.
+
+### Content if config file
+
+In short, config file contains four parts, namely id, address, parameters and storage.
+
+A typical id is shown as follows. `self_id` is the id of this specific node, 
+and `peer_id` are the id of other nodes in the distributed lock system. 
+The setting of id only have two restrictions. 
+First, all ids are globally unique, and your `self_id` should exist in all other nodes' `peer_id` list.
+Second, `0` is invalid for an id.
+```
+id:
+  self_id: 1
+  peer_id:
+    - 2
+    - 3
+```
+
+
+- "address" are relevant to the network connection of your distributed lock cluster, 
+while paths in "storage" determines the place for logs and logEntry database.
+On the other hand, you do not need to revise "parameters" generally.
+
+
 
 ## Experiments
 We provide two test templates, including a local deployment example with docker-compose

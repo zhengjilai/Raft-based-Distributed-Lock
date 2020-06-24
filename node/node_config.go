@@ -4,9 +4,19 @@
 package node
 
 import (
+	"errors"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"reflect"
 )
+
+var nodeConfigNilValueError = errors.New("dlock_raft.node_config: " +
+	"nil value occurs in Node config")
+var nodeConfigIdZeroError = errors.New("dlock_raft.node_config: " +
+	"0 should never be used as an id")
+var nodeConfigPeerNumberError = errors.New("dlock_raft.node_config: " +
+	"number of nodes in peer_id, peer_address and peer_cli_address should be equal")
 
 type NodeConfig struct{
 
@@ -82,6 +92,91 @@ func NewNodeConfigFromYaml(configPath string) (*NodeConfig, error) {
 	if err != nil{
 		return nil, err
 	}
+
+	// test nil values
+	if nodeConfig.Id.PeerId == nil ||
+		nodeConfig.Network.PeerAddress == nil ||
+		nodeConfig.Network.PeerCliAddress == nil ||
+		nodeConfig.Storage.LogPath == "" ||
+		nodeConfig.Storage.EntryStoragePath == "" ||
+		nodeConfig.Network.SelfCliAddress == "" ||
+		nodeConfig.Network.SelfAddress == "" {
+		return nil, nodeConfigNilValueError
+	}
+
+	// test the number of peers in every node config item
+	if len(nodeConfig.Id.PeerId) != len(nodeConfig.Network.PeerAddress) ||
+		len(nodeConfig.Id.PeerId) != len(nodeConfig.Network.PeerCliAddress) {
+		return nil, nodeConfigPeerNumberError
+	}
+
+	// test zero in nodeIds
+	if nodeConfig.Id.SelfId == 0 {
+		return nil, nodeConfigIdZeroError
+	}
+	for _, item := range nodeConfig.Id.PeerId {
+		if item == 0 {
+			return nil, nodeConfigIdZeroError
+		}
+	}
+
+	// set default values
+	var defaultValue = map[string]interface{}{
+		"heart_beat_interval": 50,
+		"append_entries_timeout": 150,
+		"min_wait_time_candidate": 150,
+		"max_wait_time_candidate": 300,
+		"max_log_units_recover": 200,
+		"log_back_up_interval": 1000,
+		"polling_interval": 20,
+		"state_change_timeout": 2000,
+		"acquirement_expire": 500,
+	}
+
+	err2 := structByReflect(defaultValue, &nodeConfig.Parameters)
+	if err2 != nil {
+		return nil, err2
+	}
+
 	return nodeConfig, nil
 }
 
+func structByReflect(data map[string]interface{}, inStructPtr interface{}) error {
+	rType := reflect.TypeOf(inStructPtr)
+	rVal := reflect.ValueOf(inStructPtr)
+	if rType.Kind() == reflect.Ptr {
+		rType = rType.Elem()
+		rVal = rVal.Elem()
+	} else {
+		return errors.New("dlock_raft.node_config: inStructPtr must be ptr to struct")
+	}
+	// scan the struct
+	for i := 0; i < rType.NumField(); i++ {
+		t := rType.Field(i)
+		f := rVal.Field(i)
+
+		// continue to set default value only if current value is not 0
+		if f.Uint() != 0 {
+			continue
+		}
+
+		key := t.Tag.Get("yaml")
+		if v, ok := data[key]; ok {
+			dataType := reflect.TypeOf(v)
+			structType := f.Type()
+			if structType == dataType {
+				fmt.Println(structType)
+				f.Set(reflect.ValueOf(v))
+			} else {
+				if dataType.ConvertibleTo(structType) {
+					f.Set(reflect.ValueOf(v).Convert(structType))
+				} else {
+					return errors.New("dlock_raft.node_config: " + t.Name + " type mismatch")
+				}
+			}
+		} else {
+			return errors.New("dlock_raft.node_config: " + t.Name + " not found")
+		}
+	}
+	return nil
+}

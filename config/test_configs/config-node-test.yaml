@@ -1,4 +1,5 @@
-# Config file for distributed lock based on raft
+# Test Config file for distributed lock based on raft
+# This file is reserved only for go test, do not revise it arbitrarily
 
 id:
   # the node ids, format uint32
@@ -26,15 +27,15 @@ parameters:
   append_entries_timeout: 150
   # the maximum and minimum time before become a candidate, unit:ms
   min_wait_time_candidate: 150
-  max_wait_time_candidate: 300
+  max_wait_time_candidate: 400
   # maximum number of log entries in RecoverEntriesResponse
   max_log_units_recover: 200
   # the interval for log entries backing up
-  log_back_up_interval: 1000
+  log_back_up_interval: 800
   # the interval for polling
-  polling_interval: 20
+  # polling_interval: 20
   # the timeout for state change
-  state_change_timeout: 2000
+  # state_change_timeout: 2000
   # the default expire for acquirement in pending list
   acquirement_expire: 500
 storage:
