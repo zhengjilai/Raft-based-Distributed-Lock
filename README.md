@@ -193,7 +193,8 @@ go test github.com/dlock_raft/client
 To stop the cluster, you can use `make stop`; 
 to clean all existing system logs and Entries in database you can use `make clean`.
 
-Note that in local test, we by default expose port 24005-24007 for three dlock nodes. 
+Note that in local test, we by default expose port 24005-24007 
+for clients to communicate with those three dlock nodes (namely `self_cli_address`). 
 Thus, the addressList in `SPROJECT_DIR/client/dlock_raft_client_API_test.go` is set as follows.
 You can revise them when doing more complicated integrated tests.
 ```go

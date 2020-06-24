@@ -1,0 +1,41 @@
+# Config file for distributed lock based on raft
+
+id:
+  # the node ids, format uint32
+  # Warning: Do not use 0 as it is reserved for indicating unknown !
+  self_id: %%%SELF_ID%%%
+  peer_id: %%%PEER_ID%%%
+network:
+  # the node addresses, format ip:port
+  # address for peer to peer connection within cluster
+  self_address: %%%SELF_ADDRESS%%%
+  # address for client to operate on dlock server
+  self_cli_address: %%%SELF_CLI_ADDRESS%%%
+  peer_address: %%%PEER_ADDRESS%%%
+  peer_cli_address: %%%PEER_CLI_ADDRESS%%%
+parameters:
+  # the interval for leader to push heart beat package to followers, unit:ms
+  heart_beat_interval: 50
+  # the timeout for every AppendEntriesRequest, unit:ms
+  append_entries_timeout: 150
+  # the maximum and minimum time before become a candidate, unit:ms
+  min_wait_time_candidate: 150
+  max_wait_time_candidate: 400
+  # maximum number of log entries in RecoverEntriesResponse
+  max_log_units_recover: 200
+  # the interval for log entries backing up
+  log_back_up_interval: 1000
+  # the interval for polling
+  polling_interval: 20
+  # the timeout for state change
+  state_change_timeout: 2000
+  # the default expire for acquirement in pending list
+  acquirement_expire: 500
+storage:
+  # the path for log file
+  log_path: "./var/"
+  # the log level, can choose from:
+  # Critical, Error, Warning, Notice, Info, Debug
+  log_level: Debug
+  # the path for persistent entry storage
+  entry_storage_path: "./var/persistence.db"

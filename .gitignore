@@ -3,3 +3,4 @@ var/test*
 *.db
 .git
 .idea
+experiments/distributed_test/node*
