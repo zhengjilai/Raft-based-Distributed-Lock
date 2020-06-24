@@ -110,19 +110,19 @@ both for local deployment and docker deployment.
 
 ### Location of config file
 
-For local deployment, file config locates in `$PROJECT_DIR/config/config.yaml`.
+For **local deployment**, file config locates in `$PROJECT_DIR/config/config.yaml`.
 
-For docker deployment, the file config should exist as `/srv/gopath/src/github.com/dlock_raft/config/config.yaml`
+For **docker deployment**, the file config should exist as `/srv/gopath/src/github.com/dlock_raft/config/config.yaml`
 in the docker container.
 Generally, we will use `-v` (docker run) or `volume` (docker-compose) 
 to reflect an outside config file into the container.
 See `docker-compose-local.yaml` if you are still vague about it.
 
-### Content if config file
+### Contents in config file
 
 In short, config file contains four parts, namely id, address, parameters and storage.
 
-Id configuration determines the globally unique id for nodes.
+**Id configuration** determines the globally unique id for nodes.
 A typical id configuration is shown as follows. `self_id` is the id of this specific node, 
 and `peer_id` are the id of other nodes in the distributed lock system. 
 The setting of id only have two restrictions. 
@@ -140,7 +140,7 @@ id:
 # id configuration for node 3: self_id = 3, and peer_id = [1,2]
 ```
 
-Address configuration determines the address for rpc connection. 
+**Address configuration** determines the address for rpc connection. 
 A typical address configuration is shown as follows. 
 `self_address` and `peer_address` are utilized for grpc connection between nodes in the cluster.
 `self_cli_address` and `peer_cli_address` are utilized for connection between nodes and client 
@@ -161,10 +161,10 @@ network:
     - "192.168.0.3:24005"
 ```
 
-Parameter configuration determines some internal parameters for raft or dlock.
+**Parameter configuration** determines some internal parameters for raft or dlock.
 Generally you do not need to revise them. See comments if you want to revise certain parameters.
 
-Storage configuration are simply the path for persistent database and system log. 
+**Storage configuration** are simply the path for Entry database and system log. 
 For `log_level`, the default is Info. 
 However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
