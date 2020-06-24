@@ -7,19 +7,24 @@
 # 1. genAllMat: Generate all needed materials for distributed deployment of raft_dlock
 # 2. cleanAllMat: Clean all generated materials for distributed deployment of raft_dlock
 
+# The following configs are used in generating all materials
 # the p2p communication address between system nodes
-p2p_address=("192.168.0.1" "192.168.0.2" "192.168.0.3")
+p2p_address=("121.36.203.158" "121.37.166.51" "121.37.178.20" "121.36.198.5" "121.37.135.56")
 # the p2p port for nodes
 p2p_port="14005"
 # the client-server communication address of nodes for dlock acquirers
-clisrv_address=("202.130.58.1" "202.130.58.2" "202.130.58.3")
+clisrv_address=("${p2p_address[@]}")
 # the client-server port of nodes for dlock acquirers
 clisrv_port="24005"
 
+# The following configs are used only in ssh related tasks (remote deployment)
 # the ssh/scp peer address, you should config no-password-login for your server before using this module
-ssh_address=()
-# private key file, used for ssh no-password-login
-private_key_file=""
+ssh_user_name=("hadoop" "hadoop" "hadoop" "hadoop" "hadoop")
+# the ssh address for peers
+ssh_address=("${p2p_address[@]}")
+# the root dir for dlock materials
+# shellcheck disable=SC2088
+ssh_dlock_root_dir=("~/dlock" "~/dlock" "~/dlock" "~/dlock" "~/dlock")
 
 function generateAllMaterials() {
     if [ -f ./template/config-template.yaml ] && [ -f ./template/docker-compose-template.yaml ] \
@@ -57,8 +62,8 @@ function generateAllMaterials() {
                 index_inner=$((j+1))
                 if [ ${index} -ne ${index_inner} ]; then
                     id_list="${id_list}    - ${index_inner}\n"
-                    addr_list="${addr_list}    - \"${p2p_address[j]}\"\n"
-                    addr_cli_list="${addr_cli_list}    - \"${clisrv_address[j]}\"\n"
+                    addr_list="${addr_list}    - \"${p2p_address[j]}:${p2p_port}\"\n"
+                    addr_cli_list="${addr_cli_list}    - \"${clisrv_address[j]}:${clisrv_port}\"\n"
                 fi
             done
 
@@ -68,8 +73,8 @@ function generateAllMaterials() {
                 sed -e "s/%%%PEER_ADDRESS%%%/${addr_list}/g" | \
                 sed -e "s/%%%PEER_CLI_ADDRESS%%%/${addr_cli_list}/g" | \
                 sed -e "s/%%%SELF_ID%%%/${index}/g" | \
-                sed -e "s/%%%SELF_ADDRESS%%%/${p2p_address[i]}/g" | \
-                sed -e "s/%%%SELF_CLI_ADDRESS%%%/${clisrv_address[i]}/g" \
+                sed -e "s/%%%SELF_ADDRESS%%%/\"0.0.0.0:${p2p_port}\"/g" | \
+                sed -e "s/%%%SELF_CLI_ADDRESS%%%/\"0.0.0.0:${clisrv_port}\"/g" \
                 > "node${index}/config-node.yaml"
 
             # copy the Makefile
@@ -98,12 +103,40 @@ function cleanAllMaterials() {
 }
 
 function scpAllMaterials() {
-    echo "hh"
+
+    # check the validity of preset parameters
+    if [ ${#p2p_address[@]} -ne ${#ssh_user_name[@]} ]; then
+        echo "List ssh_user_name should have the same length as p2p_address." && exit 1
+    elif [ ${#p2p_address[@]} -ne ${#ssh_address[@]} ]; then
+        echo "List ssh_address should have the same length as p2p_address." && exit 1
+    elif [ ${#p2p_address[@]} -ne ${#ssh_dlock_root_dir[@]} ]; then
+        echo "List ssh_dlock_root_dir should have the same length as p2p_address." && exit 1
+    fi
+
+    # first check all materials exist
+    for i in "${!p2p_address[@]}";
+    do
+        index=$((i+1))
+        printf "Begin to check material for node%s\n" "${index}"
+        if ! [ -d "node${index}" ]; then
+            printf "Material for node%s has not been generated.\n" "${index}" && exit 1
+        fi
+    done
+    # begin to scp materials after checking
+    for i in "${!p2p_address[@]}";
+    do
+        index=$((i+1))
+        printf "Begin to scp material for node%s\n" "${index}"
+        scp -r "node${index}" "${ssh_user_name[i]}@${ssh_address[i]}:${ssh_dlock_root_dir[i]}"
+    done
+
 }
 
 
-test ${#p2p_address[@]} -ne ${#clisrv_address[@]} && \
-    echo "List p2p_address should have the same length as clisrv_address." && exit 1
+# address length check
+if [ ${#p2p_address[@]} -ne ${#clisrv_address[@]} ]; then
+    echo "List clisrv_address should have the same length as p2p_address." && exit 1
+fi
 
 case ${1} in
     "genAllMat")
@@ -113,7 +146,7 @@ case ${1} in
         cleanAllMaterials
         ;;
     "scpAllMat")
-        cleanAllMaterials
+        scpAllMaterials
         ;;
     *)
         echo "No existing task called $1, please use genAllMat, cleanAllMat, scpAllMat."
