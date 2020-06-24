@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# This script is used to generate all needed materials for distributed deployment of raft_dlock
+# This script can be executed with $./distributed_deploy.sh taskName
+# available taskNames include: genAllMat, cleanAllMat
+
+# This script has the following functions
+# 1. genAllMat: Generate all needed materials for distributed deployment of raft_dlock
+# 2. cleanAllMat: Clean all generated materials for distributed deployment of raft_dlock
 
 # the p2p communication address between system nodes
 p2p_address=("192.168.0.1" "192.168.0.2" "192.168.0.3")
@@ -11,11 +16,17 @@ clisrv_address=("202.130.58.1" "202.130.58.2" "202.130.58.3")
 # the client-server port of nodes for dlock acquirers
 clisrv_port="24005"
 
+# the ssh/scp peer address, you should config no-password-login for your server before using this module
+ssh_address=()
+# private key file, used for ssh no-password-login
+private_key_file=""
+
 function generateAllMaterials() {
-    if [ -f ./template/config_template.yaml ] && [ -f ./template/docker-compose-template.yaml ]; then
+    if [ -f ./template/config-template.yaml ] && [ -f ./template/docker-compose-template.yaml ] \
+        && [ -f ./template/Makefile-template ] ; then
 
         # read template data
-        raw_config_template=$(cat ./template/config_template.yaml)
+        raw_config_template=$(cat ./template/config-template.yaml)
         raw_docker_template=$(cat ./template/docker-compose-template.yaml)
 
         for i in "${!p2p_address[@]}";
@@ -61,6 +72,9 @@ function generateAllMaterials() {
                 sed -e "s/%%%SELF_CLI_ADDRESS%%%/${clisrv_address[i]}/g" \
                 > "node${index}/config-node.yaml"
 
+            # copy the Makefile
+            cp ./template/Makefile-template "node${index}/Makefile"
+
         done
 
     else
@@ -83,6 +97,10 @@ function cleanAllMaterials() {
     done
 }
 
+function scpAllMaterials() {
+    echo "hh"
+}
+
 
 test ${#p2p_address[@]} -ne ${#clisrv_address[@]} && \
     echo "List p2p_address should have the same length as clisrv_address." && exit 1
@@ -94,7 +112,10 @@ case ${1} in
     "cleanAllMat")
         cleanAllMaterials
         ;;
+    "scpAllMat")
+        cleanAllMaterials
+        ;;
     *)
-        echo "No existing task called $1, please use genAllMat, cleanAllMat."
+        echo "No existing task called $1, please use genAllMat, cleanAllMat, scpAllMat."
         ;;
 esac

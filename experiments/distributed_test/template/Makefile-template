@@ -1,0 +1,10 @@
+# start / stop the node, or clean all logs and local LogEntries
+start:
+	docker-compose -f docker-compose-node.yaml up -d
+stop:
+	docker-compose -f docker-compose-node.yaml down
+cleanLog:
+	rm -f ./var/*.log
+cleanDb:
+	rm -f ./var/*.db
+clean: cleanLog cleanDb
