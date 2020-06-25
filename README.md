@@ -349,7 +349,7 @@ Do not forget to revise server addresses in `$PROJECT_DIR/dlock_api/dlock_raft_c
 
 For more details of Raft consensus protocol, please refer to [this website](https://raft.github.io/).
 
-[This video](https://www.youtube.com/watch?v=vYp4LYbnnW8) is also a great talk for learning Raft.
+[This talk](https://www.youtube.com/watch?v=vYp4LYbnnW8) is also a wonderful video material for learning Raft.
 
 When implementing this project, I referred to the following repositories.
 
