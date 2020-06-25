@@ -14,7 +14,7 @@ Local deployment example (with docker) and distributed deployment example are bo
 - [Service Deployment](#deployment)
 - [Service Configuration](#configuration)
 - [Client API](#clientapi)
-- [Integrated Tests](#experiment)
+- [Integrated Experiments](#experiment)
 
 <h3 id="dependencies"></h3>
 
@@ -150,8 +150,8 @@ In short, config file contains four parts, namely id, address, parameters and st
 A typical id configuration is shown as follows. `self_id` is the id of this specific node, 
 and `peer_id` are the id of other nodes in the distributed lock system. 
 The setting of id only have two restrictions. 
-First, all ids are globally unique, and your `self_id` should exist in all other nodes' `peer_id` list.
-Second, `0` is invalid for an id.
+First, all ids are globally unique, and your `self_id` should exist in the `peer_id` lists of all other nodes.
+Second, 0 is invalid for id.
 
 ```yaml
 # id configuration for node 1
@@ -232,7 +232,7 @@ dlockInfo, ok := dlockClient.QueryDLock(address, lockName)
 ```
 
 `dlockInfo` contains the current state of lock, 
-including its owner, nonce, expire, timestamp of last acquirement, pending acquirement number, etc..
+including its owner, nonce, expire, timestamp of last acquirement, number of pending acquirement, etc..
 `ok == true` iff the dlock exists (either locking or released).
 If the lock have been released, dlockInfo.Owner is an empty string.
 
@@ -270,10 +270,10 @@ Refer to integrated test for their usage if you need them (^-^).
 
 <h3 id="experiment"></h3>
 
-## Integrated Tests
+## Integrated Experiments
 
-We provide two integrated tests, including a local deployment example with docker-compose
-and a real-life deployment example in a distributed environment (tested OK on Kunpeng Cloud).
+We provide two integrated experiments, including a local deployment example with docker-compose
+and a practical deployment example in a distributed environment (test passed with 5 VMs on Kunpeng Cloud).
 
 <h3 id="localtest"></h3>
 
@@ -282,7 +282,7 @@ and a real-life deployment example in a distributed environment (tested OK on Ku
 Local deployment test should be conducted locally with docker-compose.
 All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
 
-First, start 3 docker containers to compose a distributed lock.
+First, start 3 docker containers for DLock nodes to compose a cluster for distributed lock service.
 ```shell
 cd $PROJECT_DIR/experiments/local_test_3nodes
 make start
@@ -295,13 +295,13 @@ Your local cluster is running normally if all integrated tests are passed.
 go test github.com/dlock_raft/dlock_api
 ```
 
-To stop the cluster, you can simply use `make stop`; 
+To stop the local cluster, you can simply use `make stop`; 
 to clean all existing system logs and Entries in database, you can use `make clean`.
 
 Also note that in local test, we by default expose port 24005-24007 
 for clients to communicate with those three dlock nodes (namely `self_cli_address`). 
-Thus, the addressList in `$PROJECT_DIR/dlock_api/dlock_raft_client_API_test.go` is set as follows.
-You can revise them when doing more complicated integrated tests.
+Thus, `addressList` in `$PROJECT_DIR/dlock_api/dlock_raft_client_API_test.go` is set as follows for the local deployment test.
+
 ```go
 var addressList = [...]string {
 	"0.0.0.0:24005",
@@ -310,15 +310,17 @@ var addressList = [...]string {
 }
 ```
 
+You can revise the above address list when doing more complicated integrated tests.
+
 ### Distributed deployment example
-Distributed deployment can be conducted with the following prerequisites.
+Distributed deployment can be conducted under the following prerequisites.
 
 - At least 3 remote machines are available and can communicate with each other. 
 - All remote machines enables ssh no-passwd-login (PublicKeyAuthentication).
 - All remote machines can expose at least two ports (for node-to-node connection and cli-srv connection).
 - Docker and docker-compose are both available on remote machines.
 
-All materials for distributed test are placed in `$PROJECT_DIR/experiments/distributed_tests`.
+All materials for distributed deployment experiment are placed in `$PROJECT_DIR/experiments/distributed_tests`.
 
 To conduct distributed test, 
 first revise the shell variables in config `$PROJECT_DIR/experiments/distributed_tests/distributed_deploy.sh`, 
@@ -343,7 +345,7 @@ cd $PROJECT_DIR/experiments/distributed_tests
 
 You can test the state of the cluster with `go test github.com/dlock_raft/dlock_api`, 
 just as what we have done in [Local Deployment Example](#localtest). 
-Do not forget to revise server addresses in `$PROJECT_DIR/dlock_api/dlock_raft_client_API_test.go`.
+Do not forget to revise the server address list in `$PROJECT_DIR/dlock_api/dlock_raft_client_API_test.go`.
 
 ## References
 
@@ -351,13 +353,13 @@ For more details of Raft consensus protocol, please refer to [this website](http
 
 [This talk](https://www.youtube.com/watch?v=vYp4LYbnnW8) is also a wonderful video material for learning Raft.
 
-When implementing this project, We referred to the following repositories.
+When implementing this project, we referred to the following repositories.
 
 - [apsdehal/go-logger](https://github.com/apsdehal/go-logger)
 - [goraft/raft](https://github.com/goraft/raft)
 - [eliben/raft](https://github.com/eliben/raft)
 
-This project only aims at study, and will never be used for commercial purposes.
+This project only aims at study, and should never be used for commercial purposes.
 For more reliable implementation of distributed lock based on Raft, you may refer to [etcd](https://github.com/etcd-io/etcd).
 
 ## Contributors
