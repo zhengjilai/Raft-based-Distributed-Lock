@@ -1,7 +1,15 @@
 # Raft-based-Distributed-Lock
-A Golang implementation of Distributed Lock based on Raft consensus algorithm.
+A Golang implementation of Distributed Lock based on Raft.
 
-Table of contents
+This repo provides a one-shot solution to deploying a cluster for distributed lock service, 
+and a simple DLock API for clients supporting basic lock operations including AcquireDLock, QueryDLock and ReleaseDLock, etc..
+
+Based on Raft consensus protocol, our DLock system can tolerate the failure of less than half of all nodes. 
+Also, the mechanisms of lease (expire) and FIFO lock acquirement queue have also been implemented. 
+Local deployment example (with docker) and distributed deployment example are both provided. 
+
+**Table of contents**
+
 - [Dependencies](#dependencies)
 - [Service Deployment](#deployment)
 - [Service Configuration](#configuration)
@@ -58,18 +66,18 @@ git clone git@github.com:zhengjilai/Raft-based-Distributed-Lock.git
 mv Raft-based-Distributed-Lock dlock_raft
 ```
 
-Then, generate all grpc codes for the project automatically with `protoc` and `protoc-gen-go`.
+Next, export an environment variable `PROJECT_DIR` for convenience.
+
+```shell
+export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
+```
+
+Finally, generate all grpc codes for the project automatically with `protoc` and `protoc-gen-go`.
 This procedure is optional, since we have already generated those grpc codes for you.
 
 ```shell
 cd $PROJECT_DIR
 protoc --proto_path=. --go_out=plugins=grpc:$GOPATH/src ./protobuf/*.proto
-```
-
-Finally, we also export an environment variable `PROJECT_DIR` for convenience.
-
-```shell
-export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
 ```
 
 ### Service local deployment 
@@ -191,7 +199,7 @@ However, you can select your wanted log level from Critical, Error, Warning, Not
 We provide some simple client API in package `github.com/dlock_raft/dlock_api`. 
 Our dlock provides basic functionalities of acquire, query and release. 
 Besides, a mechanism of expire (or lease) is available to locks,  
-and all acquirement for the same dlock will be accepted according to FIFO paradigm.
+and all acquirement for the same dlock will be accepted according to FIFO queue paradigm.
 
 ### API specifications
 
@@ -250,8 +258,8 @@ namely acquiring the lock continuously without quitting `AcquireDLock`.
 Acquirement timeout is the maximum blocking time before the client "give up".
 Expire (lease) can be set optionally when acquiring a DLock (unit: ms), 2500 ms by default.
 
-- **FIFO DLock Acquirement**.
-Our service follows the paradigm of FIFO for acquirement.
+- **FIFO DLock Acquirement Queue**.
+Our service follows the paradigm of FIFO queue for acquirement.
 For example, an occupied lock is being acquired by client A, B, and C (ordered by their first acquiring time).
 When the lock is released, client A will definitely own the lock other than B and C,
  as long as client A is still acquiring the lock.
