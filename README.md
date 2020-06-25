@@ -178,7 +178,7 @@ and a (simulated) real-life deployment example in a distributed environment.
 ### Local Deployment Example
 
 Local deployment test should be conducted with docker-compose.
-All materials for local test are placed in `SPROJECT_DIR/experiments/local_test_3nodes`.
+All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
 
 First, start 3 docker containers to compose a distributed lock.
 ```shell
@@ -186,11 +186,12 @@ cd $PROJECT_DIR/experiments/local_test_3nodes
 make start
 ```
 
-We provide some integrated tests in `SPROJECT_DIR/client/dlock_raft_client_API_test.go`
+<h3 id="localtest"></h3>
+We provide some integrated tests in `$PROJECT_DIR/client/dlock_raft_client_API_test.go`
 for this locally deployed cluster. You can trigger all of them with `go test`. 
 Your local cluster is running normally if all integrated tests are passed.
 ```shell
-go test github.com/dlock_raft/client
+go test github.com/dlock_raft/api
 ```
 
 To stop the cluster, you can use `make stop`; 
@@ -198,7 +199,7 @@ to clean all existing system logs and Entries in database you can use `make clea
 
 Note that in local test, we by default expose port 24005-24007 
 for clients to communicate with those three dlock nodes (namely `self_cli_address`). 
-Thus, the addressList in `SPROJECT_DIR/client/dlock_raft_client_API_test.go` is set as follows.
+Thus, the addressList in `$PROJECT_DIR/client/dlock_raft_client_API_test.go` is set as follows.
 You can revise them when doing more complicated integrated tests.
 ```go
 var addressList = [...]string {
@@ -209,4 +210,36 @@ var addressList = [...]string {
 ```
 
 ### Distributed Deployment Example
-2
+Distributed deployment can be conducted with the following prerequisites.
+
+- At least 3 remote machines are available and can communicate with each other. 
+- All remote machines enables ssh no-passwd-login (PublicKeyAuthentication).
+- All remote machines can expose at least two ports (for node-to-node connection and clisrv connection).
+- Docker and docker-compose are available on remote machines.
+
+All materials for local test are placed in `$PROJECT_DIR/experiments/distributed_tests`.
+
+To conduct distributed test, first the shell variables in config `$PROJECT_DIR/experiments/distributed_tests/distributed_deploy.sh`, 
+including the following network information: p2p_address, p2p_port, clisrv_address, clisrv_port, etc..
+Please refer to the shell script `distributed_deploy.sh` for more details.
+
+Then, you can generate all materials for all service nodes, and scp them on all remote machines 
+with the shell script we provide.
+```shell
+cd $PROJECT_DIR/experiments/distributed_tests
+./distributed_deploy.sh genAllMat && ./distributed_deploy.sh scpAllMat
+```
+
+Finally, after you have copied all Materials on remote machines, start or stop all dlock service as follows.
+```shell
+cd $PROJECT_DIR/experiments/distributed_tests
+# start dlock service on all nodes
+./distributed_deploy.sh startAllService
+# stop dlock service on all nodes
+./distributed_deploy.sh startAllService
+```
+
+You can test the state of the cluster with `go test github.com/dlock_raft/api`, 
+just as what we have done in [Local Deployment Test](#localtest). 
+Do not forget to revise server addresses in `$PROJECT_DIR/client/dlock_raft_client_API_test.go`.
+

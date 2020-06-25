@@ -3,6 +3,7 @@
 # This script can be executed with $./distributed_deploy.sh taskName
 # available taskNames include: genAllMat, cleanAllMat
 
+
 # This script has the following functions
 # 1. genAllMat: Generate all needed materials for distributed deployment of raft_dlock (local)
 # 2. cleanAllMat: Clean all generated materials for distributed deployment of raft_dlock (local)
@@ -10,6 +11,7 @@
 # 4. startAllService: Start the distribued lock service on all remote machines (remote)
 # 5. stopAllService: Stop the distribued lock service on all remote machines (remote)
 # 6. cleanAllVar: Clean Entry Database and Logs on all remote machines (remote)
+
 
 # The following configs are used in generating all materials
 # the p2p communication address between system nodes
@@ -20,8 +22,10 @@ p2p_port="14005"
 clisrv_address=("${p2p_address[@]}")
 # the api-server port of nodes for dlock acquirers
 clisrv_port="24005"
-# the node image name, note that \/ is used for / in sed expression
-image_name="zhengjilai\/raft-based-dlock:0.0.1-arm64"
+# the node image name (arm64v8), you can revise it with your required image
+image_name="zhengjilai/raft-based-dlock:0.0.1-arm64"
+# image_name="zhengjilai/raft-based-dlock:0.0.1"
+
 
 # The following configs are used only in ssh related tasks (remote deployment)
 # the ssh/scp peer address, you should config no-password-login for your server before using this module
@@ -31,6 +35,7 @@ ssh_address=("${p2p_address[@]}")
 # the root dir for dlock materials
 # shellcheck disable=SC2088
 ssh_dlock_root_dir=("~/dlock" "~/dlock" "~/dlock" "~/dlock" "~/dlock")
+
 
 function generateAllMaterials() {
     if [ -f ./template/config.template ] && [ -f ./template/docker-compose.template ] \
@@ -56,7 +61,7 @@ function generateAllMaterials() {
             echo "${raw_docker_template}" | \
               sed -e "s/%%%DOCKER_COMPOSE_PORTS%%%/\"${clisrv_port}:${clisrv_port}\"\n      - \"${p2p_port}:${p2p_port}\"\n/g" | \
               sed -e "s/%%%NODE_ID%%%/${index}/g" | \
-              sed -e "s/%%%IMAGE_NAME%%%/${image_name}/g" \
+              sed -e "s/%%%IMAGE_NAME%%%/${image_name/\//\\\/}/g" \
                > "node${index}/docker-compose-node.yaml"
 
             # begin to generate config-node.yaml
