@@ -2,7 +2,7 @@
 A Golang implementation of Distributed Lock based on Raft consensus algorithm.
 
 ## Dependencies
-### Local Deployment Dependencies
+### Local deployment dependencies
 <h3 id="dependencies"></h3>
 Basic requirements for local deployment of dlock_raft are listed as follows:
 
@@ -26,14 +26,14 @@ You can either obtain all these packages with `go get` or get their source codes
 If you are still vague, please refer to `Dockerfile` for more details, 
 where we solve all requirement problems for the image through simple shell scripts.
 
-### Docker Deployment Dependencies
+### Docker deployment dependencies
 Another (recommended) way of deploying this module is to use docker.
 Under this circumstance, the requirements are listed as follows:
 
 - Docker, version 19.03+
 - Docker-compose, version 1.22+
 
-## Deployment
+## Service Deployment
 
 ### Preparations
 
@@ -61,7 +61,7 @@ Finally, we also export an environment variable dubbed `PROJECT_DIR` for conveni
 export PROJECT_DIR=$GOPATH/src/github.com/dlock_raft/
 ```
 
-### Local Deployment 
+### Service local deployment 
 
 For local deployment, first obtain all required packages listed in [Section of Dependencies](#dependencies).
 
@@ -75,7 +75,7 @@ cd $PROJECT_DIR
 go run start_node.go
 ```
 
-### Docker Deployment 
+### Service docker deployment 
 
 First, build the node image with `docker build`.
 
@@ -106,7 +106,7 @@ cd $PROJECT_DIR
 docker-compose -f docker-compose-local.yaml down
 ```
 
-## Configuration
+## Service Configuration
 <h3 id="configuration"></h3>
 A config file is required when starting the distributed lock node, 
 both for local deployment and docker deployment.
@@ -171,11 +171,85 @@ Generally you do not need to revise them. See comments if you want to revise cer
 For `log_level`, the default is Info. 
 However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
-## Experiments
-We provide two test templates, including a local deployment example with docker-compose
+## Client API Introduction
+We provide some simple client API in package `github.com/dlock_raft/api`. 
+Our dlock provides basic functionalities of acquire, query and release. 
+Besides, a mechanism of expire (or lease) is available to locks,  
+and all acquirement for the same dlock will be accepted according to FIFO paradigm.
+
+### API specifications
+
+**DLock API Handler**. 
+To operate on dlock, you should first generate an API handler as follows. 
+
+```go
+dlockClient := NewDLockRaftClientAPI()
+// dlockClint := NewDLockRaftClientAPI(existingClientId)
+```
+
+If you do not specify a client id, the handler will automatically generate one for you. 
+Client Id follows the format of "github.com/segmentio/ksuid".
+
+**Acquire DLock**. A distributed lock can be acquired as follows. 
+
+```go
+ok := dlockClient.AcquireDLock(address, lockName, expire, timeout)
+``` 
+
+Here `address` follows the format of "ip:port", `lockName` is an arbitrary string set as the name of lock, 
+`expire` is an int64 time duration for lock lease (unit: ms), 
+`timeout` is the maximum block time for acquirement (optional, unit: ms).
+`ok == true` iff the dlock is acquired successfully.
+
+**Query DLock**. The current state of a distributed lock can be queried as follows.
+
+```go
+dlockInfo, ok := dlockClient.QueryDLock(address, lockName)
+```
+
+`dlockInfo` contains the current state of lock, 
+including its owner, nonce, expire, timestamp of last acquirement, pending acquirement number, etc..
+`ok == true` iff the dlock exists (either locking or released).
+If the lock have been released, dlockInfo.Owner is an empty string.
+
+**Release DLock**. A distributed lock can be released actively as follows. 
+```go
+ok := dlockClient.ReleaseDLock(address, lockName)
+```
+
+`ok == true` iff the lock is released in this release request. 
+Also note that dlock will be released by the cluster automatically when its expires.
+
+### Other notifications
+
+- **DLock Expire**. 
+All distributed locks must possess an expire (lease). 
+Even if the lock owner does not release the lock actively, 
+the service cluster will release the lock as soon as it expires.
+Expire (lease) must be set when acquiring a dlock (unit: ms).
+
+- **Acquirement Timeout**. 
+When acquiring a distributed lock, the client may block as the lock is occupied, 
+namely acquiring the lock continuously without quitting.
+Acquirement timeout is the maximum blocking time before the client "give up".
+Expire (lease) can be set optionally when acquiring a dlock (unit: ms), 2500 ms by default.
+
+- **FIFO DLock Acquirement**.
+Our service follows the paradigm of FIFO for acquirements.
+For example, an occupied lock is being acquired by A, B, and C (ordered by their first acquiring time).
+When the lock is released, A will definitely own the lock other than B and C,
+ as long as A is still acquiring the lock.
+
+- **Key-Value Storage API**. 
+Client API for KV storage is also provided, including PutState, GetState, DelState. 
+Refer to integrated test for their usage if you need them (smile).
+
+## Integrated Experiments
+We provide two integrated experiments, including a local deployment example with docker-compose
 and a (simulated) real-life deployment example in a distributed environment.
 
-### Local Deployment Example
+### Local deployment example
+<h3 id="localtest"></h3>
 
 Local deployment test should be conducted with docker-compose.
 All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
@@ -186,7 +260,6 @@ cd $PROJECT_DIR/experiments/local_test_3nodes
 make start
 ```
 
-<h3 id="localtest"></h3>
 We provide some integrated tests in `$PROJECT_DIR/client/dlock_raft_client_API_test.go`
 for this locally deployed cluster. You can trigger all of them with `go test`. 
 Your local cluster is running normally if all integrated tests are passed.
@@ -209,7 +282,7 @@ var addressList = [...]string {
 }
 ```
 
-### Distributed Deployment Example
+### Distributed deployment example
 Distributed deployment can be conducted with the following prerequisites.
 
 - At least 3 remote machines are available and can communicate with each other. 
@@ -219,7 +292,7 @@ Distributed deployment can be conducted with the following prerequisites.
 
 All materials for local test are placed in `$PROJECT_DIR/experiments/distributed_tests`.
 
-To conduct distributed test, first the shell variables in config `$PROJECT_DIR/experiments/distributed_tests/distributed_deploy.sh`, 
+To conduct distributed test, first revise the shell variables in config `$PROJECT_DIR/experiments/distributed_tests/distributed_deploy.sh`, 
 including the following network information: p2p_address, p2p_port, clisrv_address, clisrv_port, etc..
 Please refer to the shell script `distributed_deploy.sh` for more details.
 
@@ -236,10 +309,14 @@ cd $PROJECT_DIR/experiments/distributed_tests
 # start dlock service on all nodes
 ./distributed_deploy.sh startAllService
 # stop dlock service on all nodes
-./distributed_deploy.sh startAllService
+./distributed_deploy.sh stopAllService
 ```
 
 You can test the state of the cluster with `go test github.com/dlock_raft/api`, 
 just as what we have done in [Local Deployment Test](#localtest). 
 Do not forget to revise server addresses in `$PROJECT_DIR/client/dlock_raft_client_API_test.go`.
 
+
+## Contributors
+
+- [Jilai Zheng](https://github.com/zhengjilai)

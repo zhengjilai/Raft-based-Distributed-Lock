@@ -223,6 +223,11 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 		timeout = timeoutOptional[0]
 	}
 
+	if expire < 0 || timeout < 0 {
+		drc.Logger.Printf("Invalid expire or timeout for invoking Acquire DLock")
+		return false
+	}
+
 	// preprocess connections
 	drc.preprocessConnections(address, timeout)
 	// construct the request
