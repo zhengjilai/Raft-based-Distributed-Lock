@@ -8,8 +8,9 @@ Table of contents
 - [Client API](#clientapi)
 - [Integrated Experiments](#experiment)
 
-## Dependencies
 <h3 id="dependencies"></h3>
+## Dependencies
+
 ### Local deployment dependencies
 Basic requirements for local deployment of dlock_raft are listed as follows:
 
@@ -40,8 +41,9 @@ Under this circumstance, the requirements are listed as follows:
 - Docker, version 19.03+
 - Docker-compose, version 1.22+
 
-## Service Deployment
 <h3 id="deployment"></h3>
+## Service Deployment
+
 ### Preparations
 
 We provide two alternatives for deploying our system, 
@@ -95,7 +97,7 @@ docker build -t zhengjilai/raft-based-dlock:0.0.1-arm64 -f Dockerfile-arm64v8 .
 ```
 
 Then you should revise the config file (`$PROJECT_DIR/config/config.yaml`). 
-You can refer to [Section of Configuration](#configuration) for more details. 
+You can refer to [Configuration](#configuration) for more details. 
 
 Finally, you can start the distributed lock service with docker-compose.
 Remember to expose the same port in `docker-compose-local.yaml` 
@@ -113,8 +115,9 @@ cd $PROJECT_DIR
 docker-compose -f docker-compose-local.yaml down
 ```
 
-## Service Configuration
 <h3 id="configuration"></h3>
+## Service Configuration
+
 Config file is required when starting the distributed lock node, 
 both for local deployment and docker deployment.
 
@@ -178,8 +181,9 @@ Generally you do not need to revise them. See comments in config file if you wan
 For log level, the default value is Info. 
 However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
-## Client API
 <h3 id="clientapi"></h3>
+## Client API
+
 We provide some simple client API in package `github.com/dlock_raft/dlock_api`. 
 Our dlock provides basic functionalities of acquire, query and release. 
 Besides, a mechanism of expire (or lease) is available to locks,  
@@ -252,13 +256,14 @@ When the lock is released, client A will definitely own the lock other than B an
 Client API for KV storage is also provided, including PutState, GetState, DelState. 
 Refer to integrated test for their usage if you need them (^-^).
 
-## Integrated Experiments
 <h3 id="experiment"></h3>
+## Integrated Experiments
+
 We provide two integrated experiments, including a local deployment example with docker-compose
 and a real-life deployment example in a distributed environment (tested OK on Kunpeng Cloud).
 
-### Local deployment example
 <h3 id="localtest"></h3>
+### Local deployment example
 
 Local deployment test should be conducted locally with docker-compose.
 All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
@@ -323,12 +328,13 @@ cd $PROJECT_DIR/experiments/distributed_tests
 ```
 
 You can test the state of the cluster with `go test github.com/dlock_raft/dlock_api`, 
-just as what we have done in [Local Deployment Test](#localtest). 
+just as what we have done in [Local Deployment Example](#localtest). 
 Do not forget to revise server addresses in `$PROJECT_DIR/dlock_api/dlock_raft_client_API_test.go`.
 
 ## References
 
 For more details of Raft consensus protocol, please refer to [this website](https://raft.github.io/).
+
 [This video](https://www.youtube.com/watch?v=vYp4LYbnnW8) is also a great talk for learning Raft.
 
 When implementing this project, I referred to the following repositories.
