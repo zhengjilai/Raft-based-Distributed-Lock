@@ -1,4 +1,4 @@
-package api
+package dlock_api
 
 import (
 	"github.com/dlock_raft/node"
