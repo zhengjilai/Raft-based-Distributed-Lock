@@ -6,9 +6,11 @@ Table of contents
 - [Service Deployment](#deployment)
 - [Service Configuration](#configuration)
 - [Client API](#clientapi)
-- [Integrated Experiments](#experiment)
+- [Integrated Tests](#experiment)
 
-## Dependencies <h3 id="dependencies"></h3>
+<h3 id="dependencies"></h3>
+
+## Dependencies 
 
 ### Local deployment dependencies
 Basic requirements for local deployment of dlock_raft are listed as follows:
@@ -40,7 +42,9 @@ Under this circumstance, the requirements are listed as follows:
 - Docker, version 19.03+
 - Docker-compose, version 1.22+
 
-## Service Deployment <h3 id="deployment"></h3>
+<h3 id="deployment"></h3>
+
+## Service Deployment 
 
 ### Preparations
 
@@ -113,7 +117,9 @@ cd $PROJECT_DIR
 docker-compose -f docker-compose-local.yaml down
 ```
 
-## Service Configuration <h3 id="configuration"></h3>
+<h3 id="configuration"></h3>
+
+## Service Configuration 
 
 Config file is required when starting the distributed lock node, 
 both for local deployment and docker deployment.
@@ -178,7 +184,9 @@ Generally you do not need to revise them. See comments in config file if you wan
 For log level, the default value is Info. 
 However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
-## Client API <h3 id="clientapi"></h3>
+<h3 id="clientapi"></h3>
+
+## Client API 
 
 We provide some simple client API in package `github.com/dlock_raft/dlock_api`. 
 Our dlock provides basic functionalities of acquire, query and release. 
@@ -252,12 +260,16 @@ When the lock is released, client A will definitely own the lock other than B an
 Client API for KV storage is also provided, including PutState, GetState, DelState. 
 Refer to integrated test for their usage if you need them (^-^).
 
-## Integrated Experiments <h3 id="experiment"></h3>
+<h3 id="experiment"></h3>
 
-We provide two integrated experiments, including a local deployment example with docker-compose
+## Integrated Tests
+
+We provide two integrated tests, including a local deployment example with docker-compose
 and a real-life deployment example in a distributed environment (tested OK on Kunpeng Cloud).
 
-### Local deployment example <h3 id="localtest"></h3>
+<h3 id="localtest"></h3>
+
+### Local deployment example 
 
 Local deployment test should be conducted locally with docker-compose.
 All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
