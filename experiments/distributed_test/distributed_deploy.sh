@@ -16,6 +16,8 @@ p2p_port="14005"
 clisrv_address=("${p2p_address[@]}")
 # the client-server port of nodes for dlock acquirers
 clisrv_port="24005"
+# the node image name, note that \/ is used for / in sed expression
+image_name="zhengjilai\/raft-based-dlock:0.0.1-amd64"
 
 # The following configs are used only in ssh related tasks (remote deployment)
 # the ssh/scp peer address, you should config no-password-login for your server before using this module
@@ -27,12 +29,12 @@ ssh_address=("${p2p_address[@]}")
 ssh_dlock_root_dir=("~/dlock" "~/dlock" "~/dlock" "~/dlock" "~/dlock")
 
 function generateAllMaterials() {
-    if [ -f ./template/config-template.yaml ] && [ -f ./template/docker-compose-template.yaml ] \
-        && [ -f ./template/Makefile-template ] ; then
+    if [ -f ./template/config.template ] && [ -f ./template/docker-compose.template ] \
+        && [ -f ./template/Makefile.template ] ; then
 
         # read template data
-        raw_config_template=$(cat ./template/config-template.yaml)
-        raw_docker_template=$(cat ./template/docker-compose-template.yaml)
+        raw_config_template=$(cat ./template/config.template)
+        raw_docker_template=$(cat ./template/docker-compose.template)
 
         for i in "${!p2p_address[@]}";
         do
@@ -49,7 +51,8 @@ function generateAllMaterials() {
             # begin to generate docker-compose-node.yaml
             echo "${raw_docker_template}" | \
               sed -e "s/%%%DOCKER_COMPOSE_PORTS%%%/\"${clisrv_port}:${clisrv_port}\"\n      - \"${p2p_port}:${p2p_port}\"\n/g" | \
-              sed -e "s/%%%NODE_ID%%%/${index}/g" \
+              sed -e "s/%%%NODE_ID%%%/${index}/g" | \
+              sed -e "s/%%%IMAGE_NAME%%%/${image_name}/g" \
                > "node${index}/docker-compose-node.yaml"
 
             # begin to generate config-node.yaml
@@ -78,7 +81,7 @@ function generateAllMaterials() {
                 > "node${index}/config-node.yaml"
 
             # copy the Makefile
-            cp ./template/Makefile-template "node${index}/Makefile"
+            cp ./template/Makefile.template "node${index}/Makefile"
 
         done
 
@@ -127,7 +130,9 @@ function scpAllMaterials() {
     do
         index=$((i+1))
         printf "Begin to scp material for node%s\n" "${index}"
+        ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]} && rm -rf nodeMat"
         scp -r "node${index}" "${ssh_user_name[i]}@${ssh_address[i]}:${ssh_dlock_root_dir[i]}"
+        ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]} && mv node${index} nodeMat"
     done
 
 }

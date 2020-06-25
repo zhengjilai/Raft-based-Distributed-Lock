@@ -3,7 +3,7 @@ version: '2'
 services:
   raft_peer1:
     container_name: peer
-    image: dlock_raft:0.0.1
+    image: zhengjilai/raft-based-dlock:0.0.1
     volumes:
       # the path for log and persistent local entry storage
       - ./var:/srv/gopath/src/github.com/dlock_raft/var
