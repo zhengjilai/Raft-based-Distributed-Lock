@@ -84,7 +84,7 @@ cd $PROJECT_DIR
 # for x86_64 architecture
 docker build -t zhengjilai/raft-based-dlock:0.0.1 .
 # for aarch64 (arm64v8) architecture
-docker build -t zhengjilai/raft-based-dlock:0.0.1-amd64 -f Dockerfile-arm64v8 .
+docker build -t zhengjilai/raft-based-dlock:0.0.1-arm64 -f Dockerfile-arm64v8 .
 ```
 
 Then you should revise the config file (`$PROJECT_DIR/config/config.yaml`). 

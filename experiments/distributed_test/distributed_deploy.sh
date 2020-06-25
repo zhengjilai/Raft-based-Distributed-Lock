@@ -21,7 +21,7 @@ clisrv_address=("${p2p_address[@]}")
 # the client-server port of nodes for dlock acquirers
 clisrv_port="24005"
 # the node image name, note that \/ is used for / in sed expression
-image_name="zhengjilai\/raft-based-dlock:0.0.1-amd64"
+image_name="zhengjilai\/raft-based-dlock:0.0.1-arm64"
 
 # The following configs are used only in ssh related tasks (remote deployment)
 # the ssh/scp peer address, you should config no-password-login for your server before using this module
@@ -166,7 +166,7 @@ function cleanAllVar() {
     for i in "${!p2p_address[@]}";
     do
         index=$((i+1))
-        printf "Begin to stop service for node%s\n" "${index}"
+        printf "Begin to clean all variable files (Entry Database and Logs) for node%s\n" "${index}"
         ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]}/nodeMat && make clean"
     done
 }
