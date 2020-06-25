@@ -4,8 +4,12 @@
 # available taskNames include: genAllMat, cleanAllMat
 
 # This script has the following functions
-# 1. genAllMat: Generate all needed materials for distributed deployment of raft_dlock
-# 2. cleanAllMat: Clean all generated materials for distributed deployment of raft_dlock
+# 1. genAllMat: Generate all needed materials for distributed deployment of raft_dlock (local)
+# 2. cleanAllMat: Clean all generated materials for distributed deployment of raft_dlock (local)
+# 3. scpAllMat: Secure copy all generated materials to all remote machines, no-passwd-login required (remote)
+# 4. startAllService: Start the distribued lock service on all remote machines (remote)
+# 5. stopAllService: Stop the distribued lock service on all remote machines (remote)
+# 6. cleanAllVar: Clean Entry Database and Logs on all remote machines (remote)
 
 # The following configs are used in generating all materials
 # the p2p communication address between system nodes
@@ -137,6 +141,35 @@ function scpAllMaterials() {
 
 }
 
+function startAllService() {
+    # begin to start all services on remote machines
+    for i in "${!p2p_address[@]}";
+    do
+        index=$((i+1))
+        printf "Begin to start service for node%s\n" "${index}"
+        ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]}/nodeMat && make start"
+    done
+}
+
+function stopAllService() {
+    # begin to stop all services on remote machines
+    for i in "${!p2p_address[@]}";
+    do
+        index=$((i+1))
+        printf "Begin to stop service for node%s\n" "${index}"
+        ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]}/nodeMat && make stop"
+    done
+}
+
+function cleanAllVar() {
+    # begin to clean all variable files (Entry Database and Logs)
+    for i in "${!p2p_address[@]}";
+    do
+        index=$((i+1))
+        printf "Begin to stop service for node%s\n" "${index}"
+        ssh "${ssh_user_name[i]}@${ssh_address[i]}" "cd ${ssh_dlock_root_dir[i]}/nodeMat && make clean"
+    done
+}
 
 # address length check
 if [ ${#p2p_address[@]} -ne ${#clisrv_address[@]} ]; then
@@ -153,7 +186,17 @@ case ${1} in
     "scpAllMat")
         scpAllMaterials
         ;;
+    "startAllService")
+        startAllService
+        ;;
+    "stopAllService")
+        stopAllService
+        ;;
+    "cleanAllVar")
+        cleanAllVar
+        ;;
     *)
-        echo "No existing task called $1, please use genAllMat, cleanAllMat, scpAllMat."
+        echo -e "No existing task called ${1}, please use the following tasks: \n"`
+        `"genAllMat, cleanAllMat, scpAllMat, startAllService, stopAllService, cleanAllVar."
         ;;
 esac

@@ -1,7 +1,7 @@
 # This docker file is created for remote deployment
-# Since our remote machine has an arch of arm64v8, we use the corrsponding base image here
+# Since our remote machine (Kunpeng Cloud) has an architecture of aarch64, we use the corrsponding base image here
 # You can revise the base image according to your own requirements
-FROM arm64v8/golang:1.13-alpine
+FROM arm64v8/golang:1.13
 
 RUN apt install -y git
 
@@ -30,11 +30,11 @@ RUN mkdir -p /srv/gopath/src/github.com/segmentio
 RUN git clone https://github.com/segmentio/ksuid.git /srv/gopath/src/github.com/segmentio/ksuid
 
 # copy own codes into container
-COPY ../../protobuf /srv/gopath/src/github.com/dlock_raft/protobuf
-COPY ../../storage /srv/gopath/src/github.com/dlock_raft/storage
-COPY ../../node /srv/gopath/src/github.com/dlock_raft/node
-COPY ../../utils /srv/gopath/src/github.com/dlock_raft/utils
-COPY ../../start_node.go /srv/gopath/src/github.com/dlock_raft/start_node.go
+COPY ./protobuf /srv/gopath/src/github.com/dlock_raft/protobuf
+COPY ./storage /srv/gopath/src/github.com/dlock_raft/storage
+COPY ./node /srv/gopath/src/github.com/dlock_raft/node
+COPY ./utils /srv/gopath/src/github.com/dlock_raft/utils
+COPY ./start_node.go /srv/gopath/src/github.com/dlock_raft/start_node.go
 
 # mkdir for the config file dir
 RUN mkdir -p /srv/gopath/src/github.com/dlock_raft/config
