@@ -32,8 +32,8 @@ type NodeContext struct {
 	NodeState int
 	
 	// the hop id for current leader
-	// only used for client to find the current leader
-	// client may need multiple hops to find the leader
+	// only used for api to find the current leader
+	// api may need multiple hops to find the leader
 	HopToCurrentLeaderId uint32
 
 	// the channel for triggering the log committing process

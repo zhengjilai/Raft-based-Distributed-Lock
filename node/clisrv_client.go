@@ -2,11 +2,12 @@ package node
 // the gprc-based client, for client-server transport between client and node
 
 import (
-	"fmt"
 	pb "github.com/dlock_raft/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"io/ioutil"
+	"log"
 	"time"
 )
 
@@ -16,15 +17,25 @@ type GrpcCliSrvClientImpl struct {
 	nodeAddress string
 	conn *grpc.ClientConn
 	timeout uint32
+	// the logger for client
+	Logger *log.Logger
 }
 
-func NewGrpcCliSrvClientImpl(address string, timeout uint32) *GrpcCliSrvClientImpl {
+func NewGrpcCliSrvClientImpl(address string, timeout uint32, logger ...*log.Logger) *GrpcCliSrvClientImpl {
 
 	// construct the feedback object
 	grpcClient := new(GrpcCliSrvClientImpl)
 	grpcClient.nodeAddress = address
 	grpcClient.conn = nil
 	grpcClient.timeout = timeout
+
+	if len(logger) > 0 {
+		grpcClient.Logger = logger[0]
+	} else {
+		// By default, disable logger
+		grpcClient.Logger = log.New(ioutil.Discard, "", 0)
+	}
+
 	return grpcClient
 }
 
@@ -51,10 +62,10 @@ func (gc *GrpcCliSrvClientImpl) GetConnectionState() connectivity.State {
 
 func (gc *GrpcCliSrvClientImpl) IsAvailable() bool {
 	if gc.conn != nil {
-		fmt.Printf("Current TCP state is %s.\n", gc.conn.GetState())
+		gc.Logger.Printf("Current TCP state is %s.\n", gc.conn.GetState())
 		return gc.conn.GetState() == connectivity.Ready
 	}
-	fmt.Printf("P2P Connection with %s has not been initialized.\n", gc.nodeAddress)
+	gc.Logger.Printf("P2P Connection with %s has not been initialized.\n", gc.nodeAddress)
 	return false
 }
 
@@ -84,7 +95,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcPutState(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -98,10 +109,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcPutState(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send PutState %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send PutState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.PutStateKVService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -117,7 +128,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcDelState(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -131,10 +142,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcDelState(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send DelState %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send DelState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.DelStateKVService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -150,7 +161,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcGetState(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -164,10 +175,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcGetState(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send GetState %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send GetState %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.GetStateKVService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -183,7 +194,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcAcquireDLock(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -196,10 +207,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcAcquireDLock(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send AcquireDLock %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send AcquireDLock %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.AcquireDLockService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -215,7 +226,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcQueryDLock(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -229,10 +240,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcQueryDLock(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send QueryDLock %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send QueryDLock %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.QueryDLockService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 
@@ -248,7 +259,7 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcReleaseDLock(
 		err := gc.ReConnect()
 		// if reconnect fails
 		if err != nil {
-			fmt.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
+			gc.Logger.Printf("Reconnect TCP to %s fails.\n", gc.nodeAddress)
 			return nil, err
 		}
 	}
@@ -261,10 +272,10 @@ func (gc *GrpcCliSrvClientImpl) SendGrpcReleaseDLock(
 	defer cancel()
 
 	// handle response
-	fmt.Printf("Begin to send ReleaseDLock %+v to %s.\n", request, gc.nodeAddress)
+	gc.Logger.Printf("Begin to send ReleaseDLock %+v to %s.\n", request, gc.nodeAddress)
 	response, err := clientRPCOutside.ReleaseDLockService(ctx, request)
 	if err != nil {
-		fmt.Printf("Reconnect TCP fails %s.\n", err)
+		gc.Logger.Printf("Reconnect TCP fails %s.\n", err)
 		return nil, err
 	}
 

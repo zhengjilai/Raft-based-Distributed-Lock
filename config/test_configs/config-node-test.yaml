@@ -12,7 +12,7 @@ network:
   # the node addresses, format ip:port
   # address for peer to peer connection within cluster
   self_address: "192.168.2.30:14005"
-  # address for client to operate on dlock server
+  # address for api to operate on dlock server
   self_cli_address: "192.168.2.30:24005"
   peer_address:
     - "192.168.0.2:14005"

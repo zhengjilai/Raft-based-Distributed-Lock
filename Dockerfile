@@ -42,6 +42,6 @@ RUN mkdir -p /srv/gopath/src/github.com/dlock_raft/config
 RUN mkdir -p /srv/gopath/src/github.com/dlock_raft/var
 
 # entry point
-# should expose two ports, one for peer, one for client
+# should expose two ports, one for peer, one for client api
 WORKDIR /srv/gopath/src/github.com/dlock_raft
 ENTRYPOINT ["go", "run", "start_node.go"]

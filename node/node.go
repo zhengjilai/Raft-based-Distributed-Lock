@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"github.com/dlock_raft/protobuf"
 	"github.com/dlock_raft/storage"
 	"github.com/dlock_raft/utils"
@@ -280,7 +279,7 @@ func (n *Node) StartCandidateVoteModule() {
 	// reset hop
 	n.NodeContextInstance.HopToCurrentLeaderId = 0
 
-	n.NodeLogger.Debugf("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
+	n.NodeLogger.Infof("Begin the Candidate Vote module with term %d", n.NodeContextInstance.CurrentTerm)
 
 	// the collected vote number and map
 	collectedVote := 1
@@ -360,12 +359,12 @@ func (n *Node) StartCandidateVoteModule() {
 				if response.Accepted == true && voteMap[peerObj.PeerId] == false {
 					collectedVote += 1
 					voteMap[peerObj.PeerId] = true
-					n.NodeLogger.Debugf("Receive successful CandidateVote response from node %d, now " +
+					n.NodeLogger.Infof("Receive successful CandidateVote response from node %d, now " +
 						"have %d votes in term %d", response.NodeId, collectedVote, response.Term)
 				}
 				// if collected vote exceeds n/2 + 1, then become a leader
 				if 2 * collectedVote > len(n.NodeConfigInstance.Id.PeerId) + 1 {
-					n.NodeLogger.Debugf("Node collects %d CandidateVote response in term %d, now become leader.",
+					n.NodeLogger.Infof("Node collects %d CandidateVote response in term %d, now become leader.",
 						collectedVote, response.Term)
 					n.BecomeLeader()
 					return
@@ -445,8 +444,6 @@ func (n *Node) BecomeLeader() {
 				timer.Stop()
 				timer.Reset(time.Duration(n.NodeConfigInstance.Parameters.HeartBeatInterval) * time.Millisecond)
 			}
-
-			fmt.Println("Leader Heat Beat.")
 
 			// if get the sendTag, then send AppendEntries
 			if sendTag {
@@ -603,7 +600,7 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						// if majority (>n/2+1) of peers commit, then itself commit
 						if 2*matchedPeers > len(n.NodeConfigInstance.Id.PeerId)+1 {
 							n.NodeContextInstance.CommitIndex = k
-							n.NodeLogger.Debugf("Majority of peers append LogEntry "+
+							n.NodeLogger.Infof("Majority of peers append LogEntry "+
 								"with index %d, now can commit it.", k)
 						}
 					}
@@ -639,6 +636,10 @@ func (n *Node) SendAppendEntriesToPeers(peerList []uint32) {
 						// note that conflict entry index is often the first LogEntry leader sends
 						// thus, setting it as nextIndex is a kind of decrement (NextIndex--)
 						n.PeerList[indexIntermediate].NextIndex = response.ConflictEntryIndex
+						// meaning the remote node has no LogEntries
+						if response.ConflictEntryIndex == 0 {
+							n.PeerList[indexIntermediate].NextIndex = 1
+						}
 						n.NodeLogger.Debugf("Set NextIndex of peer %d as ConflictEntryIndex (%d)",
 							indexIntermediate, response.ConflictEntryIndex)
 					}
@@ -684,7 +685,7 @@ func (n *Node) commitProcedure() {
 			n.NodeLogger.Errorf("Update local DLock stateMap failed for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err)
 		} else {
-			n.NodeLogger.Debugf("Update local DLock stateMap succeeded for entry from %d to %d.",
+			n.NodeLogger.Infof("Update local DLock stateMap succeeded for entry from %d to %d.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 		}
 		err2 := n.StateMapKVStore.UpdateStateFromLogMemory(n.LogEntryInMemory,
@@ -693,7 +694,7 @@ func (n *Node) commitProcedure() {
 			n.NodeLogger.Errorf("Update local KVStore stateMap fails for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex, err2)
 		} else {
-			n.NodeLogger.Debugf("Update local KVStore stateMap succeeded for entry from %d to %d.",
+			n.NodeLogger.Infof("Update local KVStore stateMap succeeded for entry from %d to %d.",
 				n.NodeContextInstance.LastAppliedIndex + 1, n.NodeContextInstance.CommitIndex)
 		}
 		// don't forget to refresh LastAppliedIndex
@@ -732,7 +733,7 @@ func (n *Node) backupProcedure() {
 			n.NodeLogger.Errorf("Backup LogMemory failed for entry from %d to %d, error: %s.",
 				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, err)
 		} else {
-			n.NodeLogger.Debugf("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
+			n.NodeLogger.Infof("Backup LogMemory succeeded for entry from %d to %d, written %d bytes.",
 				n.NodeContextInstance.LastBackupIndex + 1, n.NodeContextInstance.CommitIndex, writeBytes)
 			n.NodeContextInstance.LastBackupIndex = n.NodeContextInstance.CommitIndex
 		}

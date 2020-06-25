@@ -66,6 +66,7 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 	}
 	// if it is exactly the same term, then an AppendEntry should always come from the leader
 	if request.Term == gs.NodeRef.NodeContextInstance.CurrentTerm {
+		gs.NodeRef.NodeLogger.Debugf("AppendEntry term %d has the same term as current term.", request.Term)
 		// set hopLeaderId as AppendEntries source
 		gs.NodeRef.NodeContextInstance.HopToCurrentLeaderId = request.NodeId
 		// become follower when hear from the current leader
@@ -84,10 +85,13 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 				}
 				// meaning the entry in LogMemory does match prev of leader
 				if entryForPrevIndex.Entry.Term == request.PrevEntryTerm {
+					gs.NodeRef.NodeLogger.Debugf("AppendEntry at term %d matches prevIndex %d with " +
+						"term %d in local LogMemory", request.Term, request.PrevEntryIndex, request.PrevEntryTerm)
 					response.Success = true
 				}
 			} else {
 				// prevIndex = 0, an extreme situation
+				gs.NodeRef.NodeLogger.Debugf("AppendEntry at term %d finds prevIndex 0, accept it", request.Term)
 				response.Success = true
 			}
 		}
@@ -117,8 +121,13 @@ func (gs *GrpcP2PServerImpl) AppendEntriesService(ctx context.Context,
 
 		} else {
 			// if prev index does not match, find the conflict index and term for leader
+			gs.NodeRef.NodeLogger.Debugf("AppendEntry at term %d does not match a previous LogEntry, " +
+				"prevIndex %d", request.Term, request.PrevEntryIndex)
 			maximumIndex := gs.NodeRef.LogEntryInMemory.MaximumIndex()
-			if request.PrevEntryIndex > maximumIndex {
+			if maximumIndex == 0 {
+				response.ConflictEntryTerm = 0
+				response.ConflictEntryIndex = 0
+			} else if request.PrevEntryIndex > maximumIndex {
 				// prevIndex > maximum index, then use maximum index in LogMemory
 				entryForMaxIndex, err := gs.NodeRef.LogEntryInMemory.FetchLogEntry(maximumIndex)
 				if err != nil {

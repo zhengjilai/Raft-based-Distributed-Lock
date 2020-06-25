@@ -16,9 +16,9 @@
 p2p_address=("121.36.203.158" "121.37.166.51" "121.37.178.20" "121.36.198.5" "121.37.135.56")
 # the p2p port for nodes
 p2p_port="14005"
-# the client-server communication address of nodes for dlock acquirers
+# the api-server communication address of nodes for dlock acquirers
 clisrv_address=("${p2p_address[@]}")
-# the client-server port of nodes for dlock acquirers
+# the api-server port of nodes for dlock acquirers
 clisrv_port="24005"
 # the node image name, note that \/ is used for / in sed expression
 image_name="zhengjilai\/raft-based-dlock:0.0.1-arm64"

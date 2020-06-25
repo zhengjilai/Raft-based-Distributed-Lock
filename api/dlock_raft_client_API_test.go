@@ -1,8 +1,10 @@
-package client
+package api
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -14,27 +16,33 @@ import (
 // note that we will take turns to request to nodes in addressList
 
 // the local test address list
-//var addressList = [...]string {
-//	"0.0.0.0:24005",
-//	"0.0.0.0:24006",
-//	"0.0.0.0:24007",
-//}
-
-// the ditributed test address list
 var addressList = [...]string {
-	"121.36.203.158:24005",
-	"121.37.166.51:24005",
-	"121.37.178.20:24005",
-	"121.36.198.5:24005",
-	"121.37.135.56:24005",
+	//"0.0.0.0:24005",
+	"0.0.0.0:24006",
+	"0.0.0.0:24007",
 }
+
+// the distributed test address list
+//var addressList = [...]string {
+//	"121.36.203.158:24005",
+//	"121.37.166.51:24005",
+//	"121.37.178.20:24005",
+//	"121.36.198.5:24005",
+//	"121.37.135.56:24005",
+//}
 
 func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 
-	var group sync.WaitGroup
+	fmt.Println("KVTest: Begin to test KVStore Put/Get/Del")
 
+	// sync utils
+	var group sync.WaitGroup
+	// default request timeout
 	timeout := uint32(2500)
+
 	dLockRaftClientAPI := NewDLockRaftClientAPI()
+	// You can set logger if you need more details
+	dLockRaftClientAPI.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 
 	// put state for 20 keys and 100 values
 	group.Add(100)
@@ -90,7 +98,7 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 
 func TestNormalDLockRelease(t *testing.T)  {
 
-	fmt.Println("Begin to test DLock normal release")
+	fmt.Println("DLockTest: Begin to test DLock normal release")
 
 	var group sync.WaitGroup
 	// totally 2 acquirers
@@ -102,6 +110,7 @@ func TestNormalDLockRelease(t *testing.T)  {
 	// dlock client acquirer 1
 	go func() {
 		dlockClient1 := NewDLockRaftClientAPI()
+		dlockClient1.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 		t.Log(fmt.Printf("DLockTest: Client 1 has clientId as %s.\n", dlockClient1.ClientId))
 
 		// client 1 acquire dlock at time 0s
@@ -136,21 +145,39 @@ func TestNormalDLockRelease(t *testing.T)  {
 			group.Done()
 			return
 		}
-		// test dlock1 state, may have not changed for network latency
+		// test dlock1 state, should have changed
 		dlockInfo2, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s immediately after release, response %+v.\n",
-			lockName, dlockInfo2))
+		if ok && dlockInfo2.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s immediately after release, " +
+				"the dlock has been released as expected, response %+v.\n",
+				lockName, dlockInfo2))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 query DLock %s immediately after release, " +
+				"the dlock has not been released as expected, response %+v.\n",
+				lockName, dlockInfo2))
+			group.Done()
+			return
+		}
 
 		// client 1 query dlock at time 4.5s
 		time.Sleep(500 * time.Millisecond)
 
-		// test dlock1 state, must have changed for network latency
+		// test dlock1 state, must have changed
 		t.Log(fmt.Printf("DLockTest: Client 1 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo3, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s a while after release, response %+v.\n",
-			lockName, dlockInfo3))
+		if ok && dlockInfo3.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s a while after release, " +
+				"the dlock has been released as expected, response %+v.\n",
+				lockName, dlockInfo3))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 query DLock %s a while after release, " +
+				"the dlock has not been released as expected, response %+v.\n",
+				lockName, dlockInfo3))
+			group.Done()
+			return
+		}
 
 		group.Done()
 	}()
@@ -159,6 +186,7 @@ func TestNormalDLockRelease(t *testing.T)  {
 	go func() {
 		// start at time 0s
 		dlockClient2 := NewDLockRaftClientAPI()
+		dlockClient2.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 		t.Log(fmt.Printf("DLockTest: Client 2 has clientId as %s.\n", dlockClient2.ClientId))
 
 		// wait for 2 seconds
@@ -168,7 +196,7 @@ func TestNormalDLockRelease(t *testing.T)  {
 		t.Log(fmt.Printf("DLockTest: Client 2 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockExpire := int64(2000)
 		// acquire dlock should fail, since it has been acquired by client 1
-		// may block about 1 second
+		// may block about 1 second (as timeout is set as 1000ms)
 		ok := dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)],
 			lockName, dlockExpire, 1000)
 		indexAccumulate ++
@@ -187,8 +215,18 @@ func TestNormalDLockRelease(t *testing.T)  {
 		t.Log(fmt.Printf("DLockTest: Client 2 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo1, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, response %+v.\n",
-			lockName, dlockInfo1))
+		if ok && dlockInfo1.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has been released by Client 1 as expected, response %+v.\n",
+				lockName, dlockInfo1))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has not been released by Client 1 as expected, response %+v.\n",
+				lockName, dlockInfo1))
+			group.Done()
+			return
+		}
+
 		// client 2 try to acquire dlock at about time 7s
 		ok = dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
 		indexAccumulate ++
@@ -199,11 +237,22 @@ func TestNormalDLockRelease(t *testing.T)  {
 			group.Done()
 			return
 		}
+
 		// query dlock immediately after acquiring it, should succeed
 		dlockInfo2, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s a while after a successful acquirement, response %+v.\n",
-			lockName, dlockInfo2))
+		if dlockInfo2.Owner == dlockClient2.ClientId {
+			t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s after a successful acquirement, " +
+				"the dlock has been acquired as expected, response %+v.\n",
+				lockName, dlockInfo2))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 query DLock %s after a successful acquirement, " +
+				"the dlock has not been acquired as expected, response %+v.\n",
+				lockName, dlockInfo2))
+			group.Done()
+			return
+		}
+
 		// release dlock immediately after acquiring it, should succeed
 		ok = dlockClient2.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
@@ -211,16 +260,25 @@ func TestNormalDLockRelease(t *testing.T)  {
 			t.Log(fmt.Printf("DLockTest: Client 2 release DLock %s succeeded.\n", lockName))
 		} else {
 			t.Error(fmt.Printf("DLockTest: Client 2 release DLock %s failed.\n", lockName))
+			group.Done()
+			return
 		}
 
-		// client 2 query dlock at time 7.5s
-		time.Sleep(500 * time.Millisecond)
-		// test dlock1 state, must have changed for network latency
+		// test dlock state, must have changed for dlock releasing
 		t.Log(fmt.Printf("DLockTest: Client 2 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo3, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s a while after a successful release, response %+v.\n",
-			lockName, dlockInfo3))
+		if ok && dlockInfo3.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s after a successful release, " +
+				"the dlock has been released as expected, response %+v.\n",
+				lockName, dlockInfo3))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 query DLock %s after a successful release, " +
+				"the dlock has not been released as expected, response %+v.\n",
+				lockName, dlockInfo3))
+			group.Done()
+			return
+		}
 
 		group.Done()
 	}()
@@ -231,7 +289,7 @@ func TestNormalDLockRelease(t *testing.T)  {
 
 func TestDLockExpireAutomatically(t *testing.T)  {
 
-	fmt.Println("Begin to test DLock expire release")
+	fmt.Println("DLockTest: Begin to test DLock expire release")
 
 	var group sync.WaitGroup
 	// totally 2 acquirers
@@ -240,9 +298,14 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 	indexAccumulate := 0
 	startTimestamp := time.Now()
 
+	// clients
+	dlockClient1 := NewDLockRaftClientAPI()
+	dlockClient2 := NewDLockRaftClientAPI()
+
 	// dlock client acquirer 1
 	go func() {
-		dlockClient1 := NewDLockRaftClientAPI()
+
+		dlockClient1.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 		t.Log(fmt.Printf("DLockTest: Client 1 has clientId as %s.\n", dlockClient1.ClientId))
 
 		// client 1 acquire dlock at time 0s
@@ -261,12 +324,21 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 		// wait for 8 seconds
 		time.Sleep(8000 * time.Millisecond)
 
-		// client 1 release dlock at time 8s
+		// client 1 query and try to release dlock at time 8s
 		t.Log(fmt.Printf("DLockTest: Client 1 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo1, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s before release, response %+v.\n",
-			lockName, dlockInfo1))
+		if ok && dlockInfo1.Owner == dlockClient2.ClientId {
+			t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s, " +
+				"the dlock has been released by server automatically and acquired by Client 2 as expected, response %+v.\n",
+				lockName, dlockInfo1))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 1 query DLock %s, " +
+				"the dlock has not been released by server automatically and acquired by Client 2 as expected, response %+v.\n",
+				lockName, dlockInfo1))
+			group.Done()
+			return
+		}
 		// client 1 release dlock at time 8s, should fail
 		ok = dlockClient1.ReleaseDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
@@ -278,23 +350,13 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 			return
 		}
 
-		// client 1 query dlock at time 8.5s
-		time.Sleep(500 * time.Millisecond)
-
-		// test dlock1 state, must have changed for network latency
-		t.Log(fmt.Printf("DLockTest: Client 1 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
-		dlockInfo2, ok := dlockClient1.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
-		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 1 query DLock %s a while after a failed release, response %+v.\n",
-			lockName, dlockInfo2))
-
 		group.Done()
 	}()
 
 	// dlock client 2
 	go func() {
 		// start at time 0s
-		dlockClient2 := NewDLockRaftClientAPI()
+		dlockClient2.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 		t.Log(fmt.Printf("DLockTest: Client 2 has clientId as %s.\n", dlockClient2.ClientId))
 
 		// wait for 2 seconds
@@ -319,12 +381,22 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 		// wait for another 3 seconds
 		time.Sleep(3000 * time.Millisecond)
 
-		// now Dlock should have been released by client 1, query before acquiring it
+		// now Dlock should have been released automatically by dlock server, query before acquiring it
 		t.Log(fmt.Printf("DLockTest: Client 2 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo1, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
-		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, response %+v.\n",
-			lockName, dlockInfo1))
+		if ok && dlockInfo1.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has been released by server automatically as expected, response %+v.\n",
+				lockName, dlockInfo1))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has not been released by server automatically as expected, response %+v.\n",
+				lockName, dlockInfo1))
+			group.Done()
+			return
+		}
+
 		// client 2 try to acquire dlock at about time 6s, should succeed
 		ok = dlockClient2.AcquireDLock(addressList[indexAccumulate % len(addressList)], lockName, dlockExpire)
 		indexAccumulate ++
@@ -342,6 +414,18 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 		t.Log(fmt.Printf("DLockTest: Client 2 now at time %d ms.\n", time.Since(startTimestamp).Nanoseconds() / 1000000))
 		dlockInfo3, ok := dlockClient2.QueryDLock(addressList[indexAccumulate % len(addressList)], lockName)
 		indexAccumulate ++
+		if ok && dlockInfo1.Owner == "" {
+			t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has been released by server automatically as expected, response %+v.\n",
+				lockName, dlockInfo3))
+		} else {
+			t.Error(fmt.Printf("DLockTest: Client 2 query DLock %s, " +
+				"the dlock has not been released by server automatically as expected, response %+v.\n",
+				lockName, dlockInfo3))
+			group.Done()
+			return
+		}
+
 		t.Log(fmt.Printf("DLockTest: Client 2 query DLock %s, response %+v.\n",
 			lockName, dlockInfo3))
 
@@ -353,7 +437,7 @@ func TestDLockExpireAutomatically(t *testing.T)  {
 
 func TestDLockRacing(t *testing.T)  {
 
-	fmt.Println("Begin to test DLock racing")
+	fmt.Println("DLockTest: Begin to test DLock racing")
 
 	var group sync.WaitGroup
 	// totally 5 acquirers
@@ -372,6 +456,7 @@ func TestDLockRacing(t *testing.T)  {
 		dlockExpire1 := int64(1500)
 
 		dlockClient1 := NewDLockRaftClientAPI()
+		dlockClient1.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 		t.Log(fmt.Printf("DLockTest: Client %d has clientId as %s.\n",
 			clientIndex1, dlockClient1.ClientId))
 
@@ -412,6 +497,7 @@ func TestDLockRacing(t *testing.T)  {
 		go func() {
 
 			dlockClient := NewDLockRaftClientAPI()
+			dlockClient.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
 			t.Log(fmt.Printf("DLockTest: Client %d has clientId as %s.\n",
 				clientIndexIntermediate, dlockClient.ClientId))
 
