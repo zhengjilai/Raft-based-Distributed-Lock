@@ -256,7 +256,7 @@ Expire (lease) must be set when acquiring a DLock (unit: ms).
 When acquiring a distributed lock, the client may block since the lock is occupied, 
 namely acquiring the lock continuously without quitting `AcquireDLock`.
 Acquirement timeout is the maximum blocking time before the client "give up".
-Expire (lease) can be set optionally when acquiring a DLock (unit: ms), 2500 ms by default.
+Timeout can be set optionally when acquiring a DLock (unit: ms), 2500 ms by default.
 
 - **FIFO DLock Acquirement Queue**.
 Our service follows the paradigm of FIFO queue for acquirement.
@@ -351,7 +351,7 @@ For more details of Raft consensus protocol, please refer to [this website](http
 
 [This talk](https://www.youtube.com/watch?v=vYp4LYbnnW8) is also a wonderful video material for learning Raft.
 
-When implementing this project, I referred to the following repositories.
+When implementing this project, We referred to the following repositories.
 
 - [apsdehal/go-logger](https://github.com/apsdehal/go-logger)
 - [goraft/raft](https://github.com/goraft/raft)
