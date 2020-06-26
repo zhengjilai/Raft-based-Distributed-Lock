@@ -2,9 +2,9 @@
 A Golang implementation of Distributed Lock based on Raft.
 
 This repo provides a one-shot solution to deploying a cluster for distributed lock service, 
-and a simple DLock API for clients supporting basic lock operations including AcquireDLock, QueryDLock and ReleaseDLock, etc..
+and a simple dLock API for clients supporting basic lock operations including AcquireDLock, QueryDLock and ReleaseDLock, etc..
 
-Based on Raft consensus protocol, our DLock system can tolerate the failure of less than half of all nodes. 
+Based on Raft consensus protocol, our dLock system can tolerate the failure of less than half of all nodes. 
 Also, the mechanisms of lease (expire) and FIFO lock acquirement queue have also been implemented. 
 Local deployment example (with docker) and distributed deployment example are both provided. 
 
@@ -185,7 +185,7 @@ network:
     - "192.168.0.3:24005"
 ```
 
-**Parameter configuration** determines some internal parameters for either Raft or DLock.
+**Parameter configuration** determines some internal parameters for either Raft or dLock.
 Generally you do not need to revise them. See comments in config file if you want to revise certain parameters.
 
 **Storage configuration** are the path for Entry database and system log. 
@@ -197,7 +197,7 @@ However, you can select your wanted log level from Critical, Error, Warning, Not
 ## Client API 
 
 We provide some simple client API in package `github.com/dlock_raft/dlock_api`. 
-Our dlock provides basic functionalities of acquire, query and release. 
+Our dlock provides basic functionalities of AcquireDLock, QueryDLock and ReleaseDLock. 
 Besides, a mechanism of expire (or lease) is available to locks,  
 and all acquirement for the same dlock will be accepted according to FIFO queue paradigm.
 
@@ -250,13 +250,13 @@ Note that locks will also be released by the cluster automatically when they exp
 All distributed locks must possess an expire (lease). 
 Even if the lock owner does not release the lock actively, 
 the service cluster will release the lock as soon as it expires.
-Expire (lease) must be set when acquiring a DLock (unit: ms).
+Expire (lease) must be set when acquiring a dLock (unit: ms).
 
 - **Acquirement Timeout**. 
 When acquiring a distributed lock, the client may block since the lock is occupied, 
 namely acquiring the lock continuously without quitting `AcquireDLock`.
 Acquirement timeout is the maximum blocking time before the client "give up".
-Timeout can be set optionally when acquiring a DLock (unit: ms), 2500 ms by default.
+Timeout can be set optionally when acquiring a dLock (unit: ms), 2500 ms by default.
 
 - **FIFO DLock Acquirement Queue**.
 Our service follows the paradigm of FIFO queue for acquirement.
@@ -282,7 +282,7 @@ and a practical deployment example in a distributed environment (test passed wit
 Local deployment test should be conducted locally with docker-compose.
 All materials for local test are placed in `$PROJECT_DIR/experiments/local_test_3nodes`.
 
-First, start 3 docker containers for DLock nodes to compose a cluster for distributed lock service.
+First, start 3 docker containers for dLock nodes to compose a cluster for distributed lock service.
 ```shell
 cd $PROJECT_DIR/experiments/local_test_3nodes
 make start
