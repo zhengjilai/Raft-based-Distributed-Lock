@@ -48,7 +48,7 @@ func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 	group.Add(100)
 	for i := 0 ; i < 100; i ++ {
 		go func(index int) {
-			time.Sleep(time.Duration(index * 5) * time.Millisecond)
+			time.Sleep(time.Duration(index * 10) * time.Millisecond)
 			success := dLockRaftClientAPI.PutState(addressList[index % len(addressList)],
 				strconv.Itoa(index % 20), []byte(strconv.Itoa(index)))
 			if success {
@@ -452,8 +452,8 @@ func TestDLockRacing(t *testing.T)  {
 	go func() {
 		// the client id index
 		clientIndex1 := 1
-		// the dlock expire for first acquirer, meaning the dlock will expire at time 1s
-		dlockExpire1 := int64(1500)
+		// the dlock expire for first acquirer, meaning the dlock will expire at time 5s
+		dlockExpire1 := int64(5000)
 
 		dlockClient1 := NewDLockRaftClientAPI()
 		dlockClient1.Logger = log.New(os.Stdout, "Raft-Dlock-Client-API: ", 0)
@@ -472,6 +472,7 @@ func TestDLockRacing(t *testing.T)  {
 			group.Done()
 			return
 		}
+
 		// increment sequence
 		acquireSequence ++
 		if acquireSequence == 1 {
@@ -502,7 +503,7 @@ func TestDLockRacing(t *testing.T)  {
 				clientIndexIntermediate, dlockClient.ClientId))
 
 			// sleep, letting every other node take turns to wake up
-			time.Sleep( time.Duration((clientIndexIntermediate- 1) * 100) * time.Millisecond)
+			time.Sleep( time.Duration((clientIndexIntermediate - 1) * 300) * time.Millisecond)
 
 			// client i now at time (i-1) * 100 ms, begin to acquire dlock
 			t.Log(fmt.Printf("DLockTest-LockRacing: Client %d now at time %d ms.\n",
