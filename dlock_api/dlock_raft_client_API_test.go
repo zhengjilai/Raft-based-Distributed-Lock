@@ -16,20 +16,20 @@ import (
 // note that we will take turns to request to nodes in addressList
 
 // the local test address list
-//var addressList = [...]string {
-//	"0.0.0.0:24005",
-//	"0.0.0.0:24006",
-//	"0.0.0.0:24007",
-//}
+var addressList = [...]string {
+	"0.0.0.0:24005",
+	"0.0.0.0:24006",
+	"0.0.0.0:24007",
+}
 
 // the distributed test address list
-var addressList = [...]string {
-	"121.36.203.158:24005",
-	"121.37.166.51:24005",
-	"121.37.178.20:24005",
-	"121.36.198.5:24005",
-	"121.37.135.56:24005",
-}
+//var addressList = [...]string {
+//	"121.36.203.158:24005",
+//	"121.37.166.51:24005",
+//	"121.37.178.20:24005",
+//	"121.36.198.5:24005",
+//	"121.37.135.56:24005",
+//}
 
 func TestDLockRaftClientAPI_PutDelGetState(t *testing.T) {
 

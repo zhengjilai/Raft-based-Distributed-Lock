@@ -292,7 +292,7 @@ func (drc *DLockRaftClientAPI) AcquireDLock(address string,
 				responseQuery, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(requestQuery)
 				if err != nil {
 					drc.Logger.Printf("Error happens when checking state of Acquire DLock, %s.\n", err)
-					return false
+					// return false
 				} else if responseQuery.Nonce >= recordedNonce {
 					// this "for" statement can exit
 					// only when we found that the current recorded State matches the recorded Nonce
@@ -451,7 +451,7 @@ func (drc *DLockRaftClientAPI) ReleaseDLock(
 				responseQuery, err := drc.CliSrvHandler[address].SendGrpcQueryDLock(requestQuery)
 				if err != nil {
 					drc.Logger.Printf("Error happens when checking state of Release DLock, %s.\n", err)
-					return false
+					// return false
 				} else if responseQuery.Nonce >= recordedNonce {
 					// this "for" statement can exit
 					// only when we found that the current recorded State matches the recorded Nonce
