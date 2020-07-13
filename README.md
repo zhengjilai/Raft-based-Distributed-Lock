@@ -188,7 +188,7 @@ network:
 **Parameter configuration** determines some internal parameters for either Raft or dLock.
 Generally you do not need to revise them. See comments in config file if you want to revise certain parameters.
 
-**Storage configuration** are the path for Entry database and system log. 
+**Storage configuration** are the paths for Entry database and system log. 
 For log level, the default value is Info. 
 However, you can select your wanted log level from Critical, Error, Warning, Notice, Info, Debug.
 
@@ -198,7 +198,7 @@ However, you can select your wanted log level from Critical, Error, Warning, Not
 
 We provide some simple client API in package `github.com/dlock_raft/dlock_api`. 
 Our dlock provides basic functionalities of AcquireDLock, QueryDLock and ReleaseDLock. 
-Besides, a mechanism of expire (or lease) is available to locks,  
+Besides, a mechanism of expire (or lease) is available to locks, 
 and all acquirement for the same dlock will be accepted according to FIFO queue paradigm.
 
 ### API specifications
@@ -255,7 +255,7 @@ Expire (lease) must be set when acquiring a dLock (unit: ms).
 - **Acquirement Timeout**. 
 When acquiring a distributed lock, the client may block since the lock is occupied, 
 namely acquiring the lock continuously without quitting `AcquireDLock`.
-Acquirement timeout is the maximum blocking time before the client "give up".
+Acquirement timeout is the maximum blocking time before the client "gives up".
 Timeout can be set optionally when acquiring a dLock (unit: ms), 2500 ms by default.
 
 - **FIFO DLock Acquirement Queue**.
