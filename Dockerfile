@@ -1,5 +1,5 @@
 # Note that this Dockerfile is writtern for x86_64 architecture
-# We also provide a Dockerfile for aarch64 (arm64v8) in ./experiments/distributed_test
+# We also provide a Dockerfile for aarch64 (arm64v8) as Dockerfile-arm64v8
 # Naturally, you can revise the base image arbitrarily according to your machine
 FROM golang:1.12
 
